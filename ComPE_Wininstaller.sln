@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34221.43
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ComPE_Wininstaller", "ComPE_Wininstaller\ComPE_Wininstaller.vcxproj", "{22BE3546-A548-4ADF-B9B7-53F1AAC98624}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决方案项", "{626BD822-C519-4A6B-B7A5-6D349AA8C30A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Debug|x64.ActiveCfg = Debug|x64
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Debug|x64.Build.0 = Debug|x64
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Debug|x86.ActiveCfg = Debug|Win32
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Debug|x86.Build.0 = Debug|Win32
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Release|x64.ActiveCfg = Release|x64
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Release|x64.Build.0 = Release|x64
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Release|x86.ActiveCfg = Release|Win32
+		{22BE3546-A548-4ADF-B9B7-53F1AAC98624}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5C604D0B-3648-483E-8304-CB3583459BA5}
+	EndGlobalSection
+EndGlobal
