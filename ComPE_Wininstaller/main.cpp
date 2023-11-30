@@ -4,6 +4,7 @@
 #include <windowsx.h>
 #include <tchar.h>
 #include <iostream>
+#include <string>
 #include <CommCtrl.h>
 #include <atlimage.h>
 #include "resource.h"
@@ -199,8 +200,22 @@ TCHAR* GetGhoFile() {
 	delete var;
 }
 
-int GetDiskNum(string str) {
-	int hwnd = Crea
+int GetDiskNum(char str[2]) {
+	char deviceName[7] = "\\\\.\\";
+	strcat_s(deviceName, str);
+	STORAGE_DEVICE_NUMBER sdn;
+	HANDLE hwnd = CreateFileA(deviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
+	if (hwnd == INVALID_HANDLE_VALUE) {
+		CloseHandle(hwnd);
+		return -1;
+	}
+	if (DeviceIoControl(hwnd,IOCTL_STORAGE_GET_DEVICE_NUMBER,NULL,NULL,&sdn,16,0,0) == 0) {
+		CloseHandle(hwnd);
+		return -1;
+	}
+	CloseHandle(hwnd);
+	//MessageBox(hWnd, (LPCWSTR)to_string(sdn.DeviceNumber).c_str(), NULL, NULL);
+	return sdn.DeviceNumber;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -475,6 +490,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 150, 180,19, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
+	GetDiskNum("E:");
 	SetWindowShow();
 	ShowWindow(hwnd, SW_SHOWNORMAL);//把窗体显示出来
 	UpdateWindow(hwnd);//更新窗体
