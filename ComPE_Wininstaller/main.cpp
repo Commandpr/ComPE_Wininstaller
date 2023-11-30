@@ -38,7 +38,7 @@ HWND btnwim;
 HWND btnghost;
 HWND hpbar;
 HWND win1, win2, win3, win4;
-HWND edit;
+HWND edit, hWndComboBox;
 LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -197,6 +197,10 @@ TCHAR* GetGhoFile() {
 		return 0;
 	}
 	delete var;
+}
+
+int GetDiskNum(string str) {
+	int hwnd = Crea
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -467,6 +471,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	edit = CreateWindow(L"edit", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
 		100, 120, 180, 19,win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	::SendMessage(edit, WM_SETFONT, (WPARAM)hFont2, 1);
+	hWndComboBox = CreateWindow(WC_COMBOBOX, TEXT(""),
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		100, 150, 180,19, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
 	SetWindowShow();
 	ShowWindow(hwnd, SW_SHOWNORMAL);//把窗体显示出来
 	UpdateWindow(hwnd);//更新窗体
