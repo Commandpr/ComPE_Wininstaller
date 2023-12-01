@@ -19,8 +19,10 @@
 #define bootbt 1004
 #define logobt 1005
 #define gholoadbt 1006
+#define ghodiskbt 1009
 #define xploadbt 1007
 #define wimloadbt 1008
+#define ghostartbt 1009
 using namespace Gdiplus;
 
 int scrWidth = GetSystemMetrics(SM_CXSCREEN);
@@ -216,6 +218,25 @@ int GetDiskNum(char str[2]) {
 	}
 	CloseHandle(hwnd);
 	return sdn.DeviceNumber;
+}
+
+void AddDiskList() {
+	SendMessage(hWndComboBox, CB_RESETCONTENT, 0, 0);
+	wchar_t drives[26 * 4 + 1];
+
+	// 调用GetLogicalDriveStringsW函数，获取所有的磁盘盘符，并存放到字符数组中
+	DWORD len = GetLogicalDriveStringsW(sizeof(drives), (LPWSTR)drives);
+	// 遍历字符数组中的每个磁盘盘符
+	for (DWORD i = 0; i < len; i += 4)
+	{
+		// 调用GetDriveTypeW函数，获取当前磁盘盘符的类型
+		UINT type = GetDriveTypeW((LPWSTR)drives + i);
+		if (type == DRIVE_FIXED || type == DRIVE_REMOVABLE)
+		{
+			ComboBox_AddString(hWndComboBox, drives + i);
+		}
+	}
+	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -482,7 +503,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND btfile1 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 	280,119, 64, 21, win1, (HMENU)gholoadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 	NULL);
+	HWND btre1 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		280, 149, 64, 21, win1, (HMENU)ghodiskbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
 	::SendMessage(btfile1, WM_SETFONT, (WPARAM)hFont2, 1);
+	::SendMessage(btre1, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit = CreateWindow(L"edit", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
 		100, 120, 180, 19,win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	::SendMessage(edit, WM_SETFONT, (WPARAM)hFont2, 1);
@@ -490,30 +515,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 150, 180,19, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	// load the combobox with item list.  
-// Send a CB_ADDSTRING message to load each item
-	char drives[26 * 4 + 1] = { 0 };
-
-	// 调用GetLogicalDriveStringsA函数，获取所有的磁盘盘符，并存放到字符数组中
-	DWORD len = GetLogicalDriveStringsA(sizeof(drives), drives);
-
-	// 遍历字符数组中的每个磁盘盘符
-	for (DWORD i = 0; i < len; i += 4)
-	{
-		// 调用GetDriveTypeA函数，获取当前磁盘盘符的类型
-		UINT type = GetDriveTypeA(drives + i);
-
-		// 如果磁盘类型是DRIVE_FIXED，即固定介质
-		if (type == DRIVE_FIXED)
-		{
-			// 调用ComboBox_AddString函数，把当前的磁盘盘符添加到组合框conbobox1中
-			ComboBox_AddString(hWndComboBox, drives + i);
-		}
-	}
-
-	// Send the CB_SETCURSEL message to display an initial item 
-	//  in the selection field  
-	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)2, (LPARAM)0);
+	::SendMessage(hWndComboBox, WM_SETFONT, (WPARAM)hFont2, 1);
+	HWND btghostart = CreateWindow(L"BUTTON", L"执行Ghost还原", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		125, 300, 120, 50, win1, (HMENU)ghostartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	::SendMessage(btghostart, WM_SETFONT, (WPARAM)hFont2, 1);
+	AddDiskList();
 	SetWindowShow();
 	ShowWindow(hwnd, SW_SHOWNORMAL);//把窗体显示出来
 	UpdateWindow(hwnd);//更新窗体
@@ -539,9 +546,12 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		TCHAR msg1[] = L"                     诺顿克隆精灵（Norton Ghost）"; 
 		TCHAR msg2[] = L"能够完整而快速地复制备份、还原整个硬盘或单一分区。";
-		TCHAR msg3[] = L"              本页面可用于对该类文件应用到磁盘。";
+		TCHAR msg3[] = L"           本页面可用于对该类文件应用到磁盘分区。";
 		TCHAR msg4[] = L"注：因Ghost软件自身原因，GHO目录请不要带有非英文字母！";
 		TCHAR ghodir[] = L"GHO文件位置：";
+		TCHAR ghodisk[] = L"安装到分区：";
+		TCHAR msg5[] = L"      建议您在备份好数据的情况下清空分区文件再继续。";
+		TCHAR msg6[] = L"               安装期间请勿操作设备，以免产生损坏。";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
@@ -552,6 +562,9 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TextOut(hdc, 32, 64, msg3, _tcslen(msg3));
 		TextOut(hdc, 21, 79, msg4, _tcslen(msg4));
 		TextOut(hdc, 16, 120, ghodir, _tcslen(ghodir));
+		TextOut(hdc, 31, 152, ghodisk, _tcslen(ghodisk));
+		TextOut(hdc, 32, 200, msg5, _tcslen(msg5));
+		TextOut(hdc, 32, 215, msg6, _tcslen(msg6));
 		EndPaint(hwnd, &ps);
 		break;
 	}
@@ -564,8 +577,13 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Edit_SetText(edit, GetGhoFile());
 			break;
 		}
+		case ghodiskbt:
+		{
+			AddDiskList();
+			break;
 		}
 		break;
+		}
 	}
 	default:
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
