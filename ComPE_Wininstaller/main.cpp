@@ -7,6 +7,7 @@
 #include <string>
 #include <CommCtrl.h>
 #include <atlimage.h>
+#include <vector>
 #include "resource.h"
 #include "gdiplus.h"
 #include "gdiplusgraphics.h"
@@ -214,7 +215,6 @@ int GetDiskNum(char str[2]) {
 		return -1;
 	}
 	CloseHandle(hwnd);
-	//MessageBox(hWnd, (LPCWSTR)to_string(sdn.DeviceNumber).c_str(), NULL, NULL);
 	return sdn.DeviceNumber;
 }
 
@@ -490,7 +490,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 150, 180,19, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	GetDiskNum("E:");
+	// load the combobox with item list.  
+// Send a CB_ADDSTRING message to load each item
+	char drives[26 * 4 + 1] = { 0 };
+
+	// 调用GetLogicalDriveStringsA函数，获取所有的磁盘盘符，并存放到字符数组中
+	DWORD len = GetLogicalDriveStringsA(sizeof(drives), drives);
+
+	// 遍历字符数组中的每个磁盘盘符
+	for (DWORD i = 0; i < len; i += 4)
+	{
+		// 调用GetDriveTypeA函数，获取当前磁盘盘符的类型
+		UINT type = GetDriveTypeA(drives + i);
+
+		// 如果磁盘类型是DRIVE_FIXED，即固定介质
+		if (type == DRIVE_FIXED)
+		{
+			// 调用ComboBox_AddString函数，把当前的磁盘盘符添加到组合框conbobox1中
+			ComboBox_AddString(hWndComboBox, drives + i);
+		}
+	}
+
+	// Send the CB_SETCURSEL message to display an initial item 
+	//  in the selection field  
+	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)2, (LPARAM)0);
 	SetWindowShow();
 	ShowWindow(hwnd, SW_SHOWNORMAL);//把窗体显示出来
 	UpdateWindow(hwnd);//更新窗体
@@ -556,8 +579,9 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_PAINT: // 绘制消息
 	{
 		TCHAR msg1[] = L"                WIM是Windows基于文件的映像格式。";
-		TCHAR msg2[] = L"WIM 映像格式并非基于扇区的映像格式，它是基于文件的。";
-		TCHAR msg3[] = L"              本页面可用于对该类文件应用到磁盘。";
+		TCHAR msg2[] = L"WIM映像格式并非基于扇区的映像格式，它是基于文件的。";
+		TCHAR msg3[] = L"   ESD文件是WIM格式的升级版，使用更高级的压缩算法。";
+		TCHAR msg4[] = L"          本页面可用于安装对应操作系统以及还原备份。";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
@@ -566,6 +590,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TextOut(hdc, 32, 34, msg1, _tcslen(msg1));
 		TextOut(hdc, 32, 49, msg2, _tcslen(msg2));
 		TextOut(hdc, 32, 64, msg3, _tcslen(msg3));
+		TextOut(hdc, 32, 79, msg4, _tcslen(msg4));
 		EndPaint(hwnd, &ps);
 		break;
 	}
@@ -592,9 +617,9 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_PAINT: // 绘制消息
 	{
-		TCHAR msg1[] = L"             对于早期Windows操作系统（XP以前）";
+		TCHAR msg1[] = L"         对于早期Windows操作系统（XP及更早版本）";
 		TCHAR msg2[] = L"        光盘映像内由一个I386文件夹存放安装信息";
-		TCHAR msg3[] = L"              本页面可用于对该类文件应用到磁盘。";
+		TCHAR msg3[] = L"       本页面可用于安装这种早期Windows操作系统。";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
@@ -629,9 +654,9 @@ LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_PAINT: // 绘制消息
 	{
-		TCHAR msg1[] = L"                     诺顿克隆精灵（Norton Ghost）";
-		TCHAR msg2[] = L"能够完整而快速地复制备份、还原整个硬盘或单一分区。";
-		TCHAR msg3[] = L"              本页面可用于对该类备份文件应用到磁盘。";
+		TCHAR msg1[] = L"                       安装系统需要一个存储媒体";
+		TCHAR msg2[] = L"        操作系统需要安装到这个媒体上的分区才能工作。";
+		TCHAR msg3[] = L"         本页面可选择磁盘工具以对磁盘进行分区等处理。";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
