@@ -23,12 +23,15 @@
 #define xploadbt 1007
 #define wimloadbt 1008
 #define ghostartbt 1009
+#define diskmode 5000
+#define parmode 6000
 using namespace Gdiplus;
 
 int scrWidth = GetSystemMetrics(SM_CXSCREEN);
 int scrHeight = GetSystemMetrics(SM_CYSCREEN);
 int createx = scrWidth / 2 - 320;
 int createy = scrHeight / 2 - 240;
+bool ispar = true;
 HWND hWnd;
 HWND btnlogo;
 HFONT hFont;
@@ -43,6 +46,7 @@ HWND btnghost;
 HWND hpbar;
 HWND win1, win2, win3, win4;
 HWND edit, hWndComboBox;
+HWND selectmodedisk, selectmodepar;
 LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -238,6 +242,52 @@ void AddDiskList() {
 	}
 	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
+void GetDiskNames()
+{
+	// 创建一个句柄，用于访问磁盘设备
+	HANDLE hDevice = INVALID_HANDLE_VALUE;
+	// 定义一个缓冲区，用于存储设备的信息
+	char szBuffer[1024] = { 0 };
+	// 定义一个变量，用于存储返回的字节数
+	DWORD dwBytesReturned = 0;
+	// 定义一个结构体，用于存储磁盘的名称
+	STORAGE_DEVICE_DESCRIPTOR* pDeviceDescriptor = NULL;
+	// 定义一个循环变量，用于遍历所有磁盘编号
+	int nDiskNumber = 0;
+	// 循环打开每个磁盘设备，并获取其信息
+	while (true)
+	{
+		// 格式化磁盘设备的名称，如".\PhysicalDrive0"
+		char szDeviceName[32] = { 0 };
+		sprintf_s(szDeviceName, "\\\\.\\\PhysicalDrive%d", nDiskNumber);
+		// 打开磁盘设备
+		hDevice = CreateFileA(szDeviceName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+		// 如果打开失败，说明没有更多的磁盘设备，退出循环
+		if (hDevice == INVALID_HANDLE_VALUE)
+		{
+			break;
+		}
+		// 发送控制码，获取设备的信息
+		BOOL bResult = DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, NULL, 0, szBuffer, sizeof(szBuffer), &dwBytesReturned, NULL);
+		// 如果成功，将缓冲区转换为设备描述结构体
+		if (bResult)
+		{
+			pDeviceDescriptor = (STORAGE_DEVICE_DESCRIPTOR*)szBuffer;
+			// 如果设备描述中包含了产品ID的偏移量，将其转换为名称字符串
+			if (pDeviceDescriptor->ProductIdOffset > 0)
+			{
+				char* szName = szBuffer + pDeviceDescriptor->ProductIdOffset;
+				// 将设备的名称添加到组合框中
+				SendMessageA(hWndComboBox, CB_ADDSTRING, 0, (LPARAM)szName);
+			}
+		}
+		// 关闭磁盘设备
+		CloseHandle(hDevice);
+		// 磁盘编号加一，继续下一个设备
+		nDiskNumber++;
+	}
+}
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
 	WNDCLASS wndcls; //创建一个窗体类
@@ -520,6 +570,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		125, 300, 120, 50, win1, (HMENU)ghostartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	::SendMessage(btghostart, WM_SETFONT, (WPARAM)hFont2, 1);
+	selectmodepar =  CreateWindowEx(WS_EX_WINDOWEDGE,
+		L"BUTTON",
+		L"分区模式",
+		WS_VISIBLE | WS_CHILD | BS_RADIOBUTTON,  // <---- WS_GROUP group the following radio buttons 1st,2nd button
+		90, 179,
+		100, 20,
+		win1, //<----- Use main window handle
+		(HMENU)parmode,
+		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),NULL );
+	selectmodedisk = CreateWindow(
+		L"BUTTON",
+		L"磁盘模式",
+		WS_VISIBLE | WS_CHILD | BS_RADIOBUTTON,  // Styles
+		190, 179,
+		100, 20,
+		win1,
+		(HMENU)diskmode,
+		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+	::SendMessage(selectmodedisk, WM_SETFONT, (WPARAM)hFont2, 1);
+	::SendMessage(selectmodepar, WM_SETFONT, (WPARAM)hFont2, 1);
+	SendMessage(selectmodepar, BM_SETCHECK, 1, 0);
+	SendMessage(selectmodedisk, BM_SETCHECK, 0, 0);
 	AddDiskList();
 	SetWindowShow();
 	ShowWindow(hwnd, SW_SHOWNORMAL);//把窗体显示出来
@@ -549,7 +621,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TCHAR msg3[] = L"           本页面可用于对该类文件应用到磁盘分区。";
 		TCHAR msg4[] = L"注：因Ghost软件自身原因，GHO目录请不要带有非英文字母！";
 		TCHAR ghodir[] = L"GHO文件位置：";
-		TCHAR ghodisk[] = L"安装到分区：";
+		TCHAR ghodisk[] = L"    安装目标：";
 		TCHAR msg5[] = L"      建议您在备份好数据的情况下清空分区文件再继续。";
 		TCHAR msg6[] = L"               安装期间请勿操作设备，以免产生损坏。";
 		PAINTSTRUCT ps;
@@ -563,8 +635,8 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TextOut(hdc, 21, 79, msg4, _tcslen(msg4));
 		TextOut(hdc, 16, 120, ghodir, _tcslen(ghodir));
 		TextOut(hdc, 31, 152, ghodisk, _tcslen(ghodisk));
-		TextOut(hdc, 32, 200, msg5, _tcslen(msg5));
-		TextOut(hdc, 32, 215, msg6, _tcslen(msg6));
+		TextOut(hdc, 32, 215, msg5, _tcslen(msg5));
+		TextOut(hdc, 32, 230, msg6, _tcslen(msg6));
 		EndPaint(hwnd, &ps);
 		break;
 	}
@@ -579,7 +651,26 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case ghodiskbt:
 		{
+			if (ispar) {
+				AddDiskList();
+			}
+			else {
+				GetDiskNames();
+			}
+			break;
+		}
+		case parmode: {
 			AddDiskList();
+			ispar = true;
+			SendMessage(selectmodepar, BM_SETCHECK, 1, 0);
+			SendMessage(selectmodedisk, BM_SETCHECK, 0, 0);
+			break;
+		}
+		case diskmode: {
+			GetDiskNames();
+			ispar = false;
+			SendMessage(selectmodepar, BM_SETCHECK, 0, 0);
+			SendMessage(selectmodedisk, BM_SETCHECK, 1, 0);
 			break;
 		}
 		break;
