@@ -1,4 +1,6 @@
-﻿#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+﻿#define _CRT_SECURE_NO_WARNINGS
+
+#pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #include <Windows.h>
 #include <windowsx.h>
@@ -242,52 +244,49 @@ void AddDiskList() {
 	}
 	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
-void GetDiskNames()
-{
-	// 创建一个句柄，用于访问磁盘设备
-	HANDLE hDevice = INVALID_HANDLE_VALUE;
-	// 定义一个缓冲区，用于存储设备的信息
-	char szBuffer[1024] = { 0 };
-	// 定义一个变量，用于存储返回的字节数
-	DWORD dwBytesReturned = 0;
-	// 定义一个结构体，用于存储磁盘的名称
-	STORAGE_DEVICE_DESCRIPTOR* pDeviceDescriptor = NULL;
-	// 定义一个循环变量，用于遍历所有磁盘编号
-	int nDiskNumber = 0;
-	// 循环打开每个磁盘设备，并获取其信息
-	while (true)
-	{
-		// 格式化磁盘设备的名称，如".\PhysicalDrive0"
-		char szDeviceName[32] = { 0 };
-		sprintf_s(szDeviceName, "\\\\.\\\PhysicalDrive%d", nDiskNumber);
-		// 打开磁盘设备
-		hDevice = CreateFileA(szDeviceName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-		// 如果打开失败，说明没有更多的磁盘设备，退出循环
-		if (hDevice == INVALID_HANDLE_VALUE)
-		{
-			break;
+
+void GetDrivelist() {
+	SendMessage(hWndComboBox, CB_RESETCONTENT, 0, 0);
+	for (int a = 0; a <= 24; a++) {
+		char deviceName[24] = "\\\\.\\PhysicalDrive";
+		char str[4] = {0};
+		_itoa(a, str, 10);
+		strcat_s(deviceName, str);
+		VOLUME_DISK_EXTENTS sdn;
+		HANDLE hwnd = CreateFileA(deviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
+		if (hwnd == INVALID_HANDLE_VALUE) {
+			CloseHandle(hwnd);
+			continue;
 		}
-		// 发送控制码，获取设备的信息
-		BOOL bResult = DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, NULL, 0, szBuffer, sizeof(szBuffer), &dwBytesReturned, NULL);
-		// 如果成功，将缓冲区转换为设备描述结构体
-		if (bResult)
-		{
-			pDeviceDescriptor = (STORAGE_DEVICE_DESCRIPTOR*)szBuffer;
-			// 如果设备描述中包含了产品ID的偏移量，将其转换为名称字符串
-			if (pDeviceDescriptor->ProductIdOffset > 0)
-			{
-				char* szName = szBuffer + pDeviceDescriptor->ProductIdOffset;
-				// 将设备的名称添加到组合框中
-				SendMessageA(hWndComboBox, CB_ADDSTRING, 0, (LPARAM)szName);
-			}
+		DWORD dwBytesReturned;
+		DISK_GEOMETRY dg;
+		BOOL bResult = DeviceIoControl(hwnd, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &dg, sizeof(dg), &dwBytesReturned, NULL);
+		if (!bResult) {
+			CloseHandle(hwnd);
+			continue;
 		}
-		// 关闭磁盘设备
-		CloseHandle(hDevice);
-		// 磁盘编号加一，继续下一个设备
-		nDiskNumber++;
+		// 计算磁盘的大小
+		long long disk_size = dg.Cylinders.QuadPart * dg.TracksPerCylinder * dg.SectorsPerTrack * dg.BytesPerSector;
+		char strd[1024] = { 0 };
+		_itoa(disk_size/1024/1024/1024, strd, 10);
+		// 关闭物理驱动器
+		CloseHandle(hwnd);
+		CString str2 = CString(str);
+		USES_CONVERSION;
+		LPCWSTR wszClassName1 = new WCHAR[str2.GetLength() + 1];
+		wcscpy((LPTSTR)wszClassName1, T2W((LPTSTR)str2.GetBuffer(NULL)));
+		str2.ReleaseBuffer();
+		CString str3 = CString(strd);
+		LPCWSTR wszClassName2 = new WCHAR[str3.GetLength() + 1];
+		wcscpy((LPTSTR)wszClassName2, T2W((LPTSTR)str3.GetBuffer(NULL)));
+		str3.ReleaseBuffer();
+		SendMessage((hWndComboBox), 0x0143, 0L, (LPARAM)(LPCTSTR)("磁盘" + str2 + "     大小："+str3+" GB"));
+		SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 	}
 }
 
+void InstallGhostFile(string dir) {
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
 	WNDCLASS wndcls; //创建一个窗体类
@@ -440,7 +439,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL,       // No menu.
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
-	hFont = CreateFont(16,                                    //   字体的高度   
+	hFont = CreateFont(20,                                    //   字体的高度   
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
 		0,                                          //  nOrientation   
@@ -453,8 +452,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CLIP_DEFAULT_PRECIS,               //   nClipPrecision   
 		DEFAULT_QUALITY,                       //   nQuality   
 		DEFAULT_PITCH | FF_SWISS,     //   nPitchAndFamily     
-		_T("幼圆"));
-	hFont2 = CreateFont(15,                                    //   字体的高度   
+		_T("OPlusSans 3.0 Medium"));
+	hFont2 = CreateFont(17,                                    //   字体的高度   
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
 		0,                                          //  nOrientation   
@@ -467,7 +466,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CLIP_DEFAULT_PRECIS,               //   nClipPrecision   
 		DEFAULT_QUALITY,                       //   nQuality   
 		DEFAULT_PITCH | FF_SWISS,     //   nPitchAndFamily     
-		_T("幼圆"));
+		_T("OPlusSans 3.0"));
 	hTabCtrl = CreateWindowEx(0, TEXT("SysTabControl32"), NULL,WS_VISIBLE|WS_CHILD | TCS_TABS,
 		233, 45, 372, 355, hWnd, (HMENU)10001, hInstance, 0);
 	::SendMessage(btndisk, WM_SETFONT, (WPARAM)hFont, 1);
@@ -655,7 +654,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				AddDiskList();
 			}
 			else {
-				GetDiskNames();
+				GetDrivelist();
 			}
 			break;
 		}
@@ -667,7 +666,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case diskmode: {
-			GetDiskNames();
+			GetDrivelist();
 			ispar = false;
 			SendMessage(selectmodepar, BM_SETCHECK, 0, 0);
 			SendMessage(selectmodedisk, BM_SETCHECK, 1, 0);
