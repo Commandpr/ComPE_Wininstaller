@@ -1,5 +1,5 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
-
+extern "C"
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #include <Windows.h>
@@ -7,11 +7,15 @@
 #include <tchar.h>
 #include <iostream>
 #include <string>
+#include <fstream>
 #include <CommCtrl.h>
 #include <atlimage.h>
 #include <vector>
-#include "wimlib.h"
+#include <filesystem>
+#include "wimgapi.h"
+#include "tinyxml.h"
 #include "resource.h"
+#pragma comment(lib,"wimgapi.lib")
 
 #define ghobt 1000
 #define xpbt 1001
@@ -50,7 +54,7 @@ HWND btnwim;
 HWND btnghost;
 HWND hpbar;
 HWND win1, win2, win3, win4;
-HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3;
+HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4;
 HWND selectmodedisk, selectmodepar;
 LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -70,6 +74,10 @@ string TCHAR2STRING(TCHAR* str)
 	}
 	catch (exception e) {}
 	return strstr;
+}
+bool isFileExists_ifstream(string& name) {
+	ifstream f(name.c_str());
+	return f.good();
 }
 LPCWSTR STRING2LPCWSTR(string str)
 {
@@ -245,15 +253,17 @@ TCHAR* GetGhoFile(LPCWSTR ftr) {
 			szFilePath[var->nFileOffset] = L'\0';//封好字符串,准备连接
 			lstrcpy(szTitle, p);//获取该文件的文件名
 			lstrcat(szFilePath, szTitle);//获得文件完整路径
-			
+			delete var;
 			return szFilePath;
 			//此处应该有对获得后的文件名和文件完整路径的各种操作
 		}
 	}
 	else {
+		delete var;
 		return 0;
 	}
 	delete var;
+	free(p);
 }
 
 int GetDiskNum(char str[2]) {
@@ -330,6 +340,9 @@ void GetDrivelist() {
 		SendMessage((hWndComboBox), 0x0143, 0L, (LPARAM)(LPCTSTR)("磁盘" + str2 + "     大小："+str3+" GB"));
 		SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 	}
+}
+
+void GetWimSysInfo(TCHAR* wimstr) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -459,7 +472,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		(HMENU)diskbt,       // No menu.
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
-	HBITMAP logo = (HBITMAP)LoadImage(NULL,L".\\COMPE.bmp", IMAGE_BITMAP, 208, 60, LR_LOADFROMFILE);
+	HBITMAP logo = (HBITMAP)LoadImage(NULL, L".\\COMPE.bmp", IMAGE_BITMAP, 208, 60, LR_LOADFROMFILE);
 	btnlogo = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
 		NULL,      // Button text 
@@ -571,28 +584,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		0, 0, 372, 355,        // Position and dimensions; example only.
 		hTabCtrl, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),    // g_hInst is the global instance handle
 		NULL);
-
-	//测试控件显示
-	/*
-	HWND btntest1 = CreateWindow(L"BUTTON",L"anniu1", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT,  // Styles 
-		22,         // x position 
-		281,         // y position 
-		187,        // Button width
-		56,        // Button height
-		win1,     // Parent window
-		(HMENU)diskbt,       // No menu.
-		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	HWND btntest2 = CreateWindow(L"BUTTON", L"anniu2", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT,  // Styles 
-		22,         // x position 
-		281,         // y position 
-		187,        // Button width
-		56,        // Button height
-		win2,     // Parent window
-		(HMENU)diskbt,       // No menu.
-		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	*/
 	HWND btfile1 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 	280,119, 64, 22, win1, (HMENU)gholoadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 	NULL);
@@ -636,26 +627,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	SendMessage(selectmodepar, BM_SETCHECK, 1, 0);
 	SendMessage(selectmodedisk, BM_SETCHECK, 0, 0);
 	HWND btfile2 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		280, 119, 64, 22, win2, (HMENU)wimloadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		280, 94, 64, 22, win2, (HMENU)wimloadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	HWND btre2 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		280, 150, 64, 22, win2, (HMENU)wimdiskbt1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		280, 125, 64, 22, win2, (HMENU)wimdiskbt1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		280, 181, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		280, 156, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	::SendMessage(btfile2, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(btre2, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit2 = CreateWindow(L"edit", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		100, 119, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+		100, 94, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	hWndComboBox2 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
-		100, 150, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		100, 125, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	hWndComboBox3 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
-		100, 180, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		100, 155, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	hWndComboBox4 = CreateWindow(WC_COMBOBOX, TEXT(""),
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		100, 185, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	::SendMessage(edit2, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(hWndComboBox2, WM_SETFONT, (WPARAM)hFont2, 1);
@@ -755,14 +750,14 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case ghostartbt: {
-			int dirlength = Edit_GetTextLength(edit);
-			if (dirlength == 0) {
-				MessageBox(hwnd, L"请选择GHO文件！", L"错误：", MB_ICONERROR);
+			TCHAR dirs[1024] = { 0 };
+			Edit_GetText(edit, dirs, 1024);
+			string dirstr = TCHAR2STRING(dirs);
+			if (!isFileExists_ifstream(dirstr)) {
+				MessageBox(hwnd, L"请选择正确的GHO文件！", L"错误：", MB_ICONERROR);
 			}
 			else {
 				if (MessageBox(hwnd, L"确认应用Ghost映像吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES) {
-					TCHAR dirs[1024] = { 0 };
-					Edit_GetText(edit, dirs, 1024);
 					if (ispar) {
 						TCHAR disk[3] = { 0 };
 						char roots[7] = "\\\\.\\";
@@ -770,7 +765,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						string target = TCHAR2STRING(disk);
 						const char* tg = strcat(roots, target.c_str());
 						int pn = GetPartitionNumber(tg);
-						string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + TCHAR2STRING(dirs) + ":1,dst=" + to_string(GetDiskNum(strcpy((char*)malloc(target.length() + 1), target.c_str()))+1) + ":" + to_string(pn) + " -sure";
+						string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy((char*)malloc(target.length() + 1), target.c_str()))+1) + ":" + to_string(pn) + " -sure";
 						system(ghostexec.c_str());
 					}
 					else {
@@ -805,22 +800,24 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TCHAR wimdir[] = L"WIM/ESD位置：";
 		TCHAR wimdisk[] = L"   安装目标：";
 		TCHAR wimbisk[] = L"   引导分区：";
+		TCHAR wimos[] = L"   系统选择：";
 		TCHAR xmldir[] = L"无人值守文件：";
 		TCHAR msg5[] = L"      建议您在备份好数据的情况下清空分区文件再继续。";
 		TCHAR msg6[] = L"               安装期间请勿操作设备，以免产生损坏。";
-		TCHAR msg7[] = L"                 （留空则不进行无人值守模式）";
+		TCHAR msg7[] = L"          （留空或路径不正确则不进行无人值守模式）";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
 		SetTextColor(hdc, RGB(0, 0, 64));
 		SelectObject(hdc, hFont2);
-		TextOut(hdc, 32, 34, msg1, _tcslen(msg1));
-		TextOut(hdc, 32, 49, msg2, _tcslen(msg2));
-		TextOut(hdc, 32, 64, msg3, _tcslen(msg3));
-		TextOut(hdc, 32, 79, msg4, _tcslen(msg4));
-		TextOut(hdc, 12, 120, wimdir, _tcslen(wimdir));
-		TextOut(hdc, 31, 152, wimdisk, _tcslen(wimdisk));
-		TextOut(hdc, 31, 184, wimbisk, _tcslen(wimbisk));
+		TextOut(hdc, 32, 20, msg1, _tcslen(msg1));
+		TextOut(hdc, 32, 35, msg2, _tcslen(msg2));
+		TextOut(hdc, 32, 50, msg3, _tcslen(msg3));
+		TextOut(hdc, 32, 65, msg4, _tcslen(msg4));
+		TextOut(hdc, 12, 95, wimdir, _tcslen(wimdir));
+		TextOut(hdc, 31, 128, wimdisk, _tcslen(wimdisk));
+		TextOut(hdc, 31, 160, wimbisk, _tcslen(wimbisk));
+		TextOut(hdc, 31, 190, wimos, _tcslen(wimos));
 		TextOut(hdc, 21, 250, xmldir, _tcslen(xmldir));
 		TextOut(hdc, 32, 215, msg5, _tcslen(msg5));
 		TextOut(hdc, 32, 230, msg6, _tcslen(msg6));
@@ -834,7 +831,9 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 		case wimloadbt:
 		{
-			Edit_SetText(edit2, GetGhoFile(L"Windows映像文件(*.wim/*.esd)\0*.wim;*.esd\0\0"));
+			TCHAR* file = GetGhoFile(L"Windows映像文件(*.wim/*.esd)\0*.wim;*.esd\0\0");
+			Edit_SetText(edit2, file);
+			GetWimSysInfo(file);
 			break;
 		}
 		case wimdiskbt1:
@@ -842,7 +841,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			AddDiskList(hWndComboBox2);
 			break;
 		}
-		case wimdiskbt2: 
+		case wimdiskbt2:
 		{
 			AddDiskList(hWndComboBox3);
 			break;
@@ -851,6 +850,23 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			Edit_SetText(edit3, GetGhoFile(L"应答文件(*.xml)\0*.xml\0\0"));
 			break;
+		}
+		case wimstartbt:
+		{
+			TCHAR dirs[1024] = { 0 };
+			Edit_GetText(edit2, dirs, 1024);
+			string dirstr = TCHAR2STRING(dirs);
+			if (!isFileExists_ifstream(dirstr))
+			{
+				MessageBox(hwnd, L"请选择正确的WIM文件！", L"错误：", MB_ICONERROR);
+			}
+			else 
+			{
+				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
+				{
+
+				}
+			}
 		}
 		}
 		break;
