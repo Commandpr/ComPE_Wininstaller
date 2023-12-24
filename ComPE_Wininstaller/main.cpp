@@ -516,7 +516,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
 	hpbar = CreateWindowEx(0,
-		PROGRESS_CLASS, (LPTSTR)NULL,    // Button text 
+		PROGRESS_CLASS, (LPTSTR)NULL,
 		WS_VISIBLE | WS_CHILD | PBS_MARQUEE,  // Styles 
 		0,         // x position 
 		424,         // y position 
@@ -902,6 +902,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
 				{
+					SendMessage(hpbar, PBM_SETRANGE, 0, 4);
 					::EnableWindow(btwimstart, false);
 					WIMStruct* WIM;
 					int result;
@@ -911,6 +912,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						::EnableWindow(btwimstart, true);
 						break;
 					}
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					//
 					int cs = ComboBox_GetCurSel(hWndComboBox4) + 1;
 					TCHAR tar[1024] = { 0 };
 					ComboBox_GetText(hWndComboBox2, tar, 1024);
@@ -921,6 +924,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						wimlib_free(WIM);
 						break;
 					}
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					//
 					wimlib_free(WIM);
 					TCHAR uad[1024] = { 0 };
 					Edit_GetText(edit3, uad, 1024);
@@ -928,14 +933,19 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					if (isFileExists_ifstream(uadfile)) {
 						CopyFile(uad, STRING2LPCWSTR(TCHAR2STRING(tar) + "Windows\\Panther\\unattend.xml"),false);
 					}
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					//
 					if (GetFirmware() == "UEFI") {
 						TCHAR boot[1024] = { 0 };
 						ComboBox_GetText(hWndComboBox3, boot, 1024);
 						string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s "+TCHAR2STRING(boot).at(0)+": / f UEFI";
 						system(cmd.c_str());
 					}
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					//
 					MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONERROR);
 					::EnableWindow(btwimstart, true);
+					SendMessage(hpbar, PBM_SETPOS, 0, 0);
 					break;
 				}
 			}
