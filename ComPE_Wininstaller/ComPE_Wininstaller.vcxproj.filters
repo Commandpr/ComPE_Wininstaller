@@ -18,9 +18,30 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="tinystr.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="tinyxml.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="tinyxmlerror.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="tinyxmlparser.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tinystr.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tinyxml.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="wimlib.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,6 +56,9 @@
     </Image>
     <Image Include="C:\Users\Commandpr\Desktop\COMPE.bmp">
       <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="COMPE.bmp">
+      <Filter>头文件</Filter>
     </Image>
   </ItemGroup>
 </Project>

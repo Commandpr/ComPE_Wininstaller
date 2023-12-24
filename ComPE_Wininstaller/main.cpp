@@ -1,5 +1,4 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
-extern "C"
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #include <Windows.h>
@@ -10,12 +9,13 @@ extern "C"
 #include <fstream>
 #include <CommCtrl.h>
 #include <atlimage.h>
+#include <regex>
 #include <vector>
+#include <comdef.h>
 #include <filesystem>
-#include "wimgapi.h"
-#include "tinyxml.h"
+#include "wimlib.h"
 #include "resource.h"
-#pragma comment(lib,"wimgapi.lib")
+#pragma comment(lib,"libwim.lib")
 
 #define ghobt 1000
 #define xpbt 1001
@@ -51,7 +51,7 @@ HWND btndisk;
 HWND btnreboot;
 HWND btnxp;
 HWND btnwim;
-HWND btnghost;
+HWND btnghost, ghostartbtn,btwimstart;
 HWND hpbar;
 HWND win1, win2, win3, win4;
 HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4;
@@ -343,6 +343,36 @@ void GetDrivelist() {
 }
 
 void GetWimSysInfo(TCHAR* wimstr) {
+	SendMessage(hWndComboBox4, CB_RESETCONTENT, 0, 0);
+	WIMStruct *WIMFile;
+	int result;
+	result = wimlib_open_wim(wimstr,0,&WIMFile);
+	if (result != 0) {
+		ComboBox_AddString(hWndComboBox4, L"错误：无法打开WIM/ESD文件！");
+		SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		return;
+	}
+	void *xml_data;
+	size_t xml_size = 0;
+	result = wimlib_get_xml_data(WIMFile, &xml_data, &xml_size);
+	if (result != 0) {
+		ComboBox_AddString(hWndComboBox4, L"未知");
+		SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		wimlib_free(WIMFile);
+		return;
+	}
+	wimlib_free(WIMFile);
+	_bstr_t a((wchar_t*)xml_data);
+	const char* xml_file = a;
+	regex r("<DISPLAYNAME>(.*?)</DISPLAYNAME>");
+	string xml = xml_file;
+	sregex_iterator it(xml.begin(), xml.end(), r);
+	sregex_iterator end;
+	while (it != end) {
+		ComboBox_AddString(hWndComboBox4, STRING2LPCWSTR(it->str(1)));
+		it++;
+	}
+	SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -600,10 +630,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		100, 150, 180,18, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	::SendMessage(hWndComboBox, WM_SETFONT, (WPARAM)hFont2, 1);
-	HWND btghostart = CreateWindow(L"BUTTON", L"执行Ghost还原", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+	ghostartbtn = CreateWindow(L"BUTTON", L"执行Ghost还原", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		125, 300, 120, 50, win1, (HMENU)ghostartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	::SendMessage(btghostart, WM_SETFONT, (WPARAM)hFont2, 1);
+	::SendMessage(ghostartbtn, WM_SETFONT, (WPARAM)hFont2, 1);
 	selectmodepar =  CreateWindowEx(WS_EX_WINDOWEDGE,
 		L"BUTTON",
 		L"分区模式",
@@ -632,30 +662,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND btre2 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 125, 64, 22, win2, (HMENU)wimdiskbt1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		280, 156, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
+	
 	::SendMessage(btfile2, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(btre2, WM_SETFONT, (WPARAM)hFont2, 1);
-	::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit2 = CreateWindow(L"edit", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
 		100, 94, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	hWndComboBox2 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 125, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	hWndComboBox3 = CreateWindow(WC_COMBOBOX, TEXT(""),
+	if (GetFirmware() == "UEFI") {
+		hWndComboBox3 = CreateWindow(WC_COMBOBOX, TEXT(""),
+			CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+			100, 185, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+			NULL);
+		::SendMessage(hWndComboBox3, WM_SETFONT, (WPARAM)hFont2, 1);
+		HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+			280, 186, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+			NULL);
+		::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
+	}
+	hWndComboBox4 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 155, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	hWndComboBox4 = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
-		100, 185, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
 	::SendMessage(edit2, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(hWndComboBox2, WM_SETFONT, (WPARAM)hFont2, 1);
-	::SendMessage(hWndComboBox3, WM_SETFONT, (WPARAM)hFont2, 1);
-	HWND btwimstart = CreateWindow(L"BUTTON", L"应用WIM/ESD映像", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+	::SendMessage(hWndComboBox4, WM_SETFONT, (WPARAM)hFont2, 1);
+	btwimstart = CreateWindow(L"BUTTON", L"应用WIM/ESD映像", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		125, 300, 120, 50, win2, (HMENU)wimstartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	HWND btfile3 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
@@ -758,6 +792,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			else {
 				if (MessageBox(hwnd, L"确认应用Ghost映像吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES) {
+					::EnableWindow(ghostartbtn, false);
 					if (ispar) {
 						TCHAR disk[3] = { 0 };
 						char roots[7] = "\\\\.\\";
@@ -776,6 +811,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + TCHAR2STRING(dirs)+",dst="+target+" -sure";
 						system(ghostexec.c_str());
 					}
+					::EnableWindow(ghostartbtn, true);
 				}
 			}
 		}
@@ -799,11 +835,11 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TCHAR msg4[] = L"          本页面可用于安装对应操作系统以及还原备份。";
 		TCHAR wimdir[] = L"WIM/ESD位置：";
 		TCHAR wimdisk[] = L"   安装目标：";
-		TCHAR wimbisk[] = L"   引导分区：";
+		TCHAR wimbisk[] = L"EFI引导分区：";
 		TCHAR wimos[] = L"   系统选择：";
 		TCHAR xmldir[] = L"无人值守文件：";
-		TCHAR msg5[] = L"      建议您在备份好数据的情况下清空分区文件再继续。";
-		TCHAR msg6[] = L"               安装期间请勿操作设备，以免产生损坏。";
+		TCHAR msg5[] = L"如果您是UEFI（请保证目标分区所在磁盘分区格式是GPT）";
+		TCHAR msg6[] = L"建议您临时将ESP分区分配盘符后，将其设置成您的引导分区";
 		TCHAR msg7[] = L"          （留空或路径不正确则不进行无人值守模式）";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
@@ -816,8 +852,10 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TextOut(hdc, 32, 65, msg4, _tcslen(msg4));
 		TextOut(hdc, 12, 95, wimdir, _tcslen(wimdir));
 		TextOut(hdc, 31, 128, wimdisk, _tcslen(wimdisk));
-		TextOut(hdc, 31, 160, wimbisk, _tcslen(wimbisk));
-		TextOut(hdc, 31, 190, wimos, _tcslen(wimos));
+		if (GetFirmware() == "UEFI") {
+			TextOut(hdc, 27, 190, wimbisk, _tcslen(wimbisk));
+		}
+		TextOut(hdc, 31, 160, wimos, _tcslen(wimos));
 		TextOut(hdc, 21, 250, xmldir, _tcslen(xmldir));
 		TextOut(hdc, 32, 215, msg5, _tcslen(msg5));
 		TextOut(hdc, 32, 230, msg6, _tcslen(msg6));
@@ -864,7 +902,41 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
 				{
-
+					::EnableWindow(btwimstart, false);
+					WIMStruct* WIM;
+					int result;
+					result = wimlib_open_wim(dirs, 0, &WIM);
+					if (result != 0) {
+						MessageBox(hWnd, L"未能成功打开WIM/ESD文件，请检查文件是否是正确的映像文件！", 0, MB_ICONERROR);
+						::EnableWindow(btwimstart, true);
+						break;
+					}
+					int cs = ComboBox_GetCurSel(hWndComboBox4) + 1;
+					TCHAR tar[1024] = { 0 };
+					ComboBox_GetText(hWndComboBox2, tar, 1024);
+					result = wimlib_extract_image(WIM, cs, tar, NULL);
+					if (result != 0) {
+						MessageBox(hWnd, STRING2LPCWSTR("应用WIM/ESD映像的时候发生错误，错误代码：" + to_string(result)), 0, MB_ICONERROR);
+						::EnableWindow(btwimstart, true);
+						wimlib_free(WIM);
+						break;
+					}
+					wimlib_free(WIM);
+					TCHAR uad[1024] = { 0 };
+					Edit_GetText(edit3, uad, 1024);
+					string uadfile = TCHAR2STRING(uad);
+					if (isFileExists_ifstream(uadfile)) {
+						CopyFile(uad, STRING2LPCWSTR(TCHAR2STRING(tar) + "Windows\\Panther\\unattend.xml"),false);
+					}
+					if (GetFirmware() == "UEFI") {
+						TCHAR boot[1024] = { 0 };
+						ComboBox_GetText(hWndComboBox3, boot, 1024);
+						string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s "+TCHAR2STRING(boot).at(0)+": / f UEFI";
+						system(cmd.c_str());
+					}
+					MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONERROR);
+					::EnableWindow(btwimstart, true);
+					break;
 				}
 			}
 		}

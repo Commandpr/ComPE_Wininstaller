@@ -129,9 +129,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="tinystr.cpp" />
+    <ClCompile Include="tinyxml.cpp" />
+    <ClCompile Include="tinyxmlerror.cpp" />
+    <ClCompile Include="tinyxmlparser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
+    <ClInclude Include="tinystr.h" />
+    <ClInclude Include="tinyxml.h" />
+    <ClInclude Include="wimlib.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ComPE_Wininstaller1.rc" />
@@ -139,6 +146,7 @@
   <ItemGroup>
     <Image Include="C:\Users\74575\Desktop\compe.ico" />
     <Image Include="C:\Users\Commandpr\Desktop\COMPE.bmp" />
+    <Image Include="COMPE.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
