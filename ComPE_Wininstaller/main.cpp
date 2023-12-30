@@ -1220,6 +1220,13 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		}
+		case logobt:
+			try {
+				system("about");
+			}
+			catch(exception){
+
+			}
 		}
 		break;
 	case WM_CLOSE:
