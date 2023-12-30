@@ -1115,7 +1115,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 					if (isFileExists_ifstream(TCHAR2STRING(txtfile))) {
 						CopyFile(txtfile, STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\WINNT.SIF"),false);
 					}
-					string cmd = ".\\bootsect.exe /nt60 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
+					string cmd = ".\\bootsect.exe /nt52 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
 					system(cmd.c_str());
 					MessageBox(hwnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
 					::EnableWindow(btxpstart, true);
