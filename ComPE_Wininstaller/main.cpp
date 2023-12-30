@@ -1110,6 +1110,11 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 							return 0;
 						}
 					}
+					fstream f;
+					string sifolder = tarstr + "$WIN_NT$.~BT\\WINNT.SIF";
+					f.open(sifolder, ios::out);
+					f << "[Data]\nFloppyLess = 1\nMsDosInitiated = 1\nUnattendedInstall = \"Yes\"\n\n[Unattended]\nOemPreinstall = Yes\nTargetPath = Windows" << endl;
+					f.close();
 					TCHAR txtfile[1024] = { 0 };
 					Edit_GetText(edit5, txtfile, 1024);
 					if (isFileExists_ifstream(TCHAR2STRING(txtfile))) {
