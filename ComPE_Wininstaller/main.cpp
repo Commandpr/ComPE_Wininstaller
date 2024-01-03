@@ -195,7 +195,6 @@ void SetWindowShow() {
 	}
 }
 
-
 bool improvePv()
 {
 	HANDLE hToken;
