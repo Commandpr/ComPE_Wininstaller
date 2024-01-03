@@ -951,7 +951,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
 				{
-					SendMessage(hpbar, PBM_SETRANGE, 0, 4);
+					SendMessage(hpbar, PBM_SETRANGE32, 0, 4);
 					::EnableWindow(btwimstart, false);
 					WIMStruct* WIM;
 					int result;
@@ -1026,7 +1026,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		TCHAR txtdir[] = L"   应答文件：";
 		TCHAR msg4[] = L"          （留空或路径不正确则不进行无人值守模式）";
 		TCHAR msg5[] = L"    注：所有早期Windows操作系统均不支持UEFI启动";
-		TCHAR msg6[] = L"              I386文件夹目录格式示例：“D:\\I386”";
+		TCHAR msg6[] = L"I386文件夹目录格式示例：“D:\\I386”（路径不要带空格）";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
@@ -1074,6 +1074,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			}
 			SHGetPathFromIDList(idl, szBuffer);
 			Edit_SetText(edit4, szBuffer);
+			break;
 		}
 		case xpstartbt:
 		{
@@ -1085,62 +1086,80 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				MessageBox(hwnd, L"请输入正确的文件夹路径！", L"错误：", MB_ICONERROR);
 			}
 			else {
-				if (MessageBox(hwnd, L"确认安装NT5.x的操作系统吗？期间请勿进行任何操作。", L"提示：", MB_ICONQUESTION | MB_OKCANCEL) == IDOK) 
+				if (MessageBox(hwnd, L"确认安装NT5.x的操作系统吗？期间请勿进行任何操作。", L"提示：", MB_ICONQUESTION | MB_OKCANCEL) == IDOK)
 				{
 					::EnableWindow(btxpstart, false);
 					TCHAR tar[1024] = { 0 };
 					ComboBox_GetText(hWndComboBox5, tar, 1024);
 					string tarstr = TCHAR2STRING(tar);
 					TCHAR i86fdr[1024] = { 0 };
-					string fileslist[] = { "1394BUS.SY_","ABP480N5.SY_","ACPI.SY_","ACPIEC.SY_","ADPU160M.SY_","AHA154X.SY_","AIC78U2.SY_","AIC78XX.SY_","ALIIDE.SY_","AMSINT.SY_","ASC.SY_","ASC3350P.SY_","ASC3550.SY_","ATAPI.SY_","BIOSINFO.INF","BOOTFONT.BIN","BOOTVID.DL_","CBIDF2K.SY_","CD20XRNT.SY_","CDFS.SY_","CDROM.SY_","CLASSPNP.SY_","CMDIDE.SY_","CPQARRAY.SY_","C_936.NL_","DAC2W2K.SY_","DAC960NT.SY_","DISK.SY_","DISK1","DMBOOT.SY_","DMIO.SY_","DMLOAD.SY_","DPTI2O.SY_","DRVMAIN.SDB","FASTFAT.SY_","FDC.SY_","FLPYDISK.SY_","FTDISK.SY_","HAL.DL_","HALAACPI.DL_","HALACPI.DL_","HALAPIC.DL_","HIDCLASS.SY_","HIDPARSE.SY_","HIDUSB.SY_","HPN.SY_","I2OMGMT.SY_","I2OMP.SY_","I8042PRT.SY_","INI910U.SY_","INTELIDE.SY_","ISAPNP.SY_","KBDCLASS.SY_","KBDHID.SY_","KBDUS.DLL","KD1394.DL_","KDCOM.DL_","KSECDD.SYS","LBRTFDC.SY_","L_INTL.NL_","MOUNTMGR.SY_","MRAID35X.SY_","NTDETECT.COM","NTFS.SYS","NTKRNLMP.EX_","NTLDR","OHCI1394.SY_","OPRGHDLR.SY_","PARTMGR.SY_","PCI.SY_","PCIIDE.SY_","PCIIDEX.SY_","PCMCIA.SY_","PERC2.SY_","PERC2HIB.SY_","QL1080.SY_","QL10WNT.SY_","QL12160.SY_","QL1240.SY_","QL1280.SY_","RAMDISK.SY_","SBP2PORT.SY_","SCSIPORT.SY_","SERENUM.SY_","SERIAL.SY_","SETUPDD.SY_","SETUPLDR.BIN","SETUPREG.HIV","SFLOPPY.SY_","SPARROW.SY_","SPCMDCON.SYS","SPDDLANG.SY_","SYMC810.SY_","SYMC8XX.SY_","SYM_HI.SY_","SYM_U3.SY_","TFFSPORT.SY_","TOSIDE.SY_","TXTSETUP.SIF","ULTRA.SY_","USBCCGP.SY_","USBD.SY_","USBEHCI.SY_","USBHUB.SY_","USBOHCI.SY_","USBPORT.SY_","USBSTOR.SY_","USBUHCI.SY_","VGA.SY_","VGAOEM.FO_","VIAIDE.SY_","VIDEOPRT.SY_","WMILIB.SY_" };
-					SendMessage(hpbar, PBM_SETRANGE, 0, sizeof(fileslist));
-					namespace fs = std::filesystem;
-					for (int a = 0; a <= sizeof(fileslist); a++)
+					string path = tarstr + "$WIN_NT$.~BT";
+					bool flag = CreateDirectory(STRING2LPCWSTR(path), NULL);
+					//string fileslist[] = { "1394BUS.SY_","ABP480N5.SY_","ACPI.SY_","ACPIEC.SY_","ADPU160M.SY_","AHA154X.SY_","AIC78U2.SY_","AIC78XX.SY_","ALIIDE.SY_","AMSINT.SY_","ASC.SY_","ASC3350P.SY_","ASC3550.SY_","ATAPI.SY_","BIOSINFO.INF","BOOTFONT.BIN","BOOTVID.DL_","CBIDF2K.SY_","CD20XRNT.SY_","CDFS.SY_","CDROM.SY_","CLASSPNP.SY_","CMDIDE.SY_","CPQARRAY.SY_","C_936.NL_","DAC2W2K.SY_","DAC960NT.SY_","DISK.SY_","DISK1","DMBOOT.SY_","DMIO.SY_","DMLOAD.SY_","DPTI2O.SY_","DRVMAIN.SDB","FASTFAT.SY_","FDC.SY_","FLPYDISK.SY_","FTDISK.SY_","HAL.DL_","HALAACPI.DL_","HALACPI.DL_","HALAPIC.DL_","HIDCLASS.SY_","HIDPARSE.SY_","HIDUSB.SY_","HPN.SY_","I2OMGMT.SY_","I2OMP.SY_","I8042PRT.SY_","INI910U.SY_","INTELIDE.SY_","ISAPNP.SY_","KBDCLASS.SY_","KBDHID.SY_","KBDUS.DLL","KD1394.DL_","KDCOM.DL_","KSECDD.SYS","LBRTFDC.SY_","L_INTL.NL_","MOUNTMGR.SY_","MRAID35X.SY_","NTDETECT.COM","NTFS.SYS","NTKRNLMP.EX_","NTLDR","OHCI1394.SY_","OPRGHDLR.SY_","PARTMGR.SY_","PCI.SY_","PCIIDE.SY_","PCIIDEX.SY_","PCMCIA.SY_","PERC2.SY_","PERC2HIB.SY_","QL1080.SY_","QL10WNT.SY_","QL12160.SY_","QL1240.SY_","QL1280.SY_","RAMDISK.SY_","SBP2PORT.SY_","SCSIPORT.SY_","SERENUM.SY_","SERIAL.SY_","SETUPDD.SY_","SETUPLDR.BIN","SETUPREG.HIV","SFLOPPY.SY_","SPARROW.SY_","SPCMDCON.SYS","SPDDLANG.SY_","SYMC810.SY_","SYMC8XX.SY_","SYM_HI.SY_","SYM_U3.SY_","TFFSPORT.SY_","TOSIDE.SY_","TXTSETUP.SIF","ULTRA.SY_","USBCCGP.SY_","USBD.SY_","USBEHCI.SY_","USBHUB.SY_","USBOHCI.SY_","USBPORT.SY_","USBSTOR.SY_","USBUHCI.SY_","VGA.SY_","VGAOEM.FO_","VIAIDE.SY_","VIDEOPRT.SY_","WMILIB.SY_" };
+					SendMessage(hpbar, PBM_SETRANGE32, 0, 10);
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					string copycmd = ".\\CopyXPFiles.exe " + dirstr + "\\ " + tarstr+"$WIN_NT$.~BT";
+					int result = system(copycmd.c_str());
+					if(result != 0)
 					{
-						for (const auto& entry : fs::directory_iterator(dirstr))
-						{
-							if (entry.path().u8string() == dirstr + "\\" + fileslist[a]) {
-								CopyFile(STRING2LPCWSTR(entry.path().u8string()), STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\" + fileslist[a]), false);
-								SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-								break;
-							}
-							MessageBox(hwnd, L"发生复制错误：安装文件夹不完整，请检查资源完整性，然后重新尝试。", NULL, MB_ICONERROR);
-							::EnableWindow(btxpstart, true);
-							SendMessage(hpbar, PBM_SETPOS, 0, 0);
-							return 0;
-						}
+						SendMessage(hpbar, PBM_SETPOS, 0, 0);
+						::EnableWindow(btxpstart, true);
+						MessageBox(hwnd, L"文件目录不完整！请确认您所指定的I386文件夹是否完整，以及目标磁盘是否已被清空！", NULL, MB_ICONERROR);
+						break;
 					}
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					fstream f;
 					string sifolder = tarstr + "$WIN_NT$.~BT\\WINNT.SIF";
 					f.open(sifolder, ios::out);
-					f << "[Data]\nFloppyLess = 1\nMsDosInitiated = 1\nUnattendedInstall = \"Yes\"\n\n[Unattended]\nTargetPath = Windows\nOemSkipEula = Windows" << endl;
+					f << "[Data]\nFloppyLess = 1\nMsDosInitiated = 1\nUnattendedInstall = \"Yes\"\n\n[Unattended]\nTargetPath = Windows\nOemSkipEula = Yes" << endl;
 					f.close();
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					fstream f2;
+					string sifolder2 = tarstr + "$WIN_NT$.~BT\\migrate.inf";
+					f2.open(sifolder2, ios::out);
+					string mig = "[Version]\n\
+Signature = \"$Windows NT$\"\n\
+\n\
+[Addreg]\n\
+HKLM, \"SYSTEM\\MountedDevices\", , 0x00000010\n\
+HKLM, \"SYSTEM\\MountedDevices\", \"\\DosDevices\\C:\", 0x00030001, \\\
+be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
+					f2 << mig << endl;
+					f2.close();
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					TCHAR txtfile[1024] = { 0 };
 					Edit_GetText(edit5, txtfile, 1024);
 					if (isFileExists_ifstream(TCHAR2STRING(txtfile))) {
-						CopyFile(txtfile, STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\WINNT.SIF"),false);
+						CopyFile(txtfile, STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\WINNT.SIF"), false);
 					}
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					string cmd = ".\\bootsect.exe /nt52 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
-					CopyFile(STRING2LPCWSTR(dirstr + "\\NTDETECT.COM"), STRING2LPCWSTR(tarstr + "NTDETECT.COM"),false);
+					CopyFile(STRING2LPCWSTR(dirstr + "\\NTDETECT.COM"), STRING2LPCWSTR(tarstr + "NTDETECT.COM"), false);
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					CopyFile(STRING2LPCWSTR(dirstr + "\\TXTSETUP.SIF"), STRING2LPCWSTR(tarstr + "TXTSETUP.SIF"), false);
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					CopyFile(STRING2LPCWSTR(dirstr + "\\BOOTFONT.BIN"), STRING2LPCWSTR(tarstr + "BOOTFONT.BIN"), false);
-					CopyFile(L".\\xp\\NTLDR", STRING2LPCWSTR(tarstr + "NTLDR"), false);
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
+					CopyFile(L".\\NTLDR", STRING2LPCWSTR(tarstr + "NTLDR"), false);
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					system(cmd.c_str());
+					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					MessageBox(hwnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
 					::EnableWindow(btxpstart, true);
 					SendMessage(hpbar, PBM_SETPOS, 0, 0);
+					break;
+					}
 				}
+				break;
 			}
-			break;
-		}
 		}
 		break;
-	}
+		}
 	default:
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
 	}
 	return 0;
-}
+	}
 
 
 LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
