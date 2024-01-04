@@ -624,7 +624,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	SendMessage(win4, WM_SETFONT, (WPARAM)hFont2, 1);
 	string program_info = "感谢您使用ComPE Windows安装程序！\n\
-目前Windows的安装方式主要有Ghost系统安装，Windows Vista+的WIM/ESD安装和NT5.x类的I386三种安装方法，程序提供了三种方式以应对不同的操作系统的安装执行。\n\
+本程序由C++编写。目前Windows的安装方式主要有Ghost系统安装，Windows Vista+的WIM/ESD安装和NT5.x类的I386三种安装方法，程序提供了三种方式以应对不同的操作系统的安装执行。\n\
 为保证您的使用体验，使用时需注意以下几点：\n\
 1.Ghost备份还原的时候由于赛门铁克Ghost官方限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
 2.WIM/ESD安装期间，程序可能陷入一段时间的无响应，属于正常现象，不要试图关闭程序或重启计算机，否则可能导致设备损坏。\n\
