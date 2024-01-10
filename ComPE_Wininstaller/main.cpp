@@ -860,6 +860,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						system(ghostexec.c_str());
 					}
 					::EnableWindow(ghostartbtn, true);
+					MessageBox(hWnd, L"执行完成！重启计算机后将进行进一步安装Windows操作（以Ghost官方提示为准）！", L"成功：", MB_ICONINFORMATION);
 				}
 			}
 		}
@@ -950,7 +951,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
 				{
-					SendMessage(hpbar, PBM_SETRANGE32, 0, 4);
+					SendMessage(hpbar, PBM_SETRANGE,0,MAKELPARAM(0,4));
 					::EnableWindow(btwimstart, false);
 					WIMStruct* WIM;
 					int result;
@@ -995,7 +996,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					}
 					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					//
-					MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONERROR);
+					MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONINFORMATION);
 					::EnableWindow(btwimstart, true);
 					SendMessage(hpbar, PBM_SETPOS, 0, 0);
 					break;
@@ -1094,7 +1095,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 					TCHAR i86fdr[1024] = { 0 };
 					string path = tarstr + "$WIN_NT$.~BT";
 					bool flag = CreateDirectory(STRING2LPCWSTR(path), NULL);
-					SendMessage(hpbar, PBM_SETRANGE32, 0, 10);
+					SendMessage(hpbar, PBM_SETRANGE,0, MAKELPARAM(0, 10));
 					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					string copycmd = ".\\CopyXPFiles.exe " + dirstr + "\\ " + tarstr+"$WIN_NT$.~BT";
 					int result = system(copycmd.c_str());
