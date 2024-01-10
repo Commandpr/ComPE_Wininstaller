@@ -1098,8 +1098,8 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 					SendMessage(hpbar, PBM_SETRANGE,0, MAKELPARAM(0, 10));
 					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
 					string copycmd = ".\\CopyXPFiles.exe " + dirstr + "\\ " + tarstr+"$WIN_NT$.~BT";
-					int result = system(copycmd.c_str());
-					if(result != 0)
+					int result = WinExec(copycmd.c_str(), SW_HIDE);
+					if(result == 0)
 					{
 						SendMessage(hpbar, PBM_SETPOS, 0, 0);
 						::EnableWindow(btxpstart, true);
