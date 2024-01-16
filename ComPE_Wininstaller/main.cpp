@@ -560,7 +560,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	btnwim = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"WIM/ESD模式",      // Button text 
+		L"WIM模式",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT,  // Styles 
 		22,         // x position 
 		165,         // y position 
@@ -596,7 +596,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);      // Pointer not needed.
 	btndisk = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"程序说明",      // Button text 
+		L"程序说明书",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON |BS_FLAT,  // Styles 
 		22,         // x position 
 		281,         // y position 
@@ -623,7 +623,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
 		0,                                          //  nOrientation   
-		FW_NORMAL,                                  //   nWeight   
+		FW_BLACK,                                  //   nWeight   
 		FALSE,                                      //   bItalic   
 		FALSE,                                      //   bUnderline   
 		0,                                                   //   cStrikeOut   
@@ -1322,7 +1322,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	TCHAR msg2[8];
 	swprintf(msg2, 8, L"%S", GetFirmware().c_str());
 	TCHAR msg3[] = L"纯净安全且简洁的Windows PE维护系统";
-	TCHAR msg4[] = L"Copyright © 2023 ComPE-纯净且简洁的Windows PE系统";
+	TCHAR msg4[] = L"Copyright © 2024 ComPE-纯净且简洁的Windows PE系统";
 	switch (uMsg)//通过判断消息进行消息响应
 	{
 	case WM_NOTIFY:
