@@ -4,17 +4,24 @@
 #include <Windows.h>
 #include <io.h>
 #include <windowsx.h>
+#include <fcntl.h>
 #include <tchar.h>
+#include <stdio.h>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <fstream>
 #include <filesystem>
 #include <CommCtrl.h>
 #include <atlimage.h>
+#include <future>
+#include <functional>
+#include <thread>
 #include <regex>
 #include <vector>
 #include <comdef.h>
 #include <filesystem>
+#include <fcntl.h>
 #include <Shlobj.h>
 #include "wimlib.h"
 #include "resource.h"
@@ -48,17 +55,18 @@ int createx = scrWidth / 2 - 320;
 int createy = scrHeight / 2 - 240;
 bool ispar = true;
 HWND hWnd;
+int noerror = 0;
 HWND btnlogo;
 HFONT hFont;
 HFONT hFont2;
 HWND block;
 HWND hTabCtrl;
 HWND btndisk;
+HWND barbg, barfw,protxt;
 HWND btnreboot;
 HWND btnxp;
 HWND btnwim;
 HWND btnghost, ghostartbtn,btwimstart, btxpstart;
-HWND hpbar;
 HWND win1, win2, win3,win4;
 HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5;
 HWND selectmodedisk, selectmodepar;
@@ -326,46 +334,92 @@ void AddDiskList(HWND cb) {
 	SendMessage(cb, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
 
-void GetDrivelist() {
-	SendMessage(hWndComboBox, CB_RESETCONTENT, 0, 0);
-	for (int a = 0; a <= 24; a++) {
-		char deviceName[24] = "\\\\.\\PhysicalDrive";
-		char str[4] = {0};
-		_itoa(a, str, 10);
-		strcat_s(deviceName, str);
-		VOLUME_DISK_EXTENTS sdn;
-		HANDLE hwnd = CreateFileA(deviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
-		if (hwnd == INVALID_HANDLE_VALUE) {
-			CloseHandle(hwnd);
-			continue;
-		}
-		DWORD dwBytesReturned;
-		DISK_GEOMETRY dg;
-		BOOL bResult = DeviceIoControl(hwnd, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &dg, sizeof(dg), &dwBytesReturned, NULL);
-		if (!bResult) {
-			CloseHandle(hwnd);
-			continue;
-		}
-		// 计算磁盘的大小
-		long long disk_size = dg.Cylinders.QuadPart * dg.TracksPerCylinder * dg.SectorsPerTrack * dg.BytesPerSector;
-		char strd[1024] = { 0 };
-		_itoa(disk_size/1024/1024/1024, strd, 10);
-		// 关闭物理驱动器
-		CloseHandle(hwnd);
-		CString str2 = CString(str);
-		USES_CONVERSION;
-		LPCWSTR wszClassName1 = new WCHAR[str2.GetLength() + 1];
-		wcscpy((LPTSTR)wszClassName1, T2W((LPTSTR)str2.GetBuffer(NULL)));
-		str2.ReleaseBuffer();
-		CString str3 = CString(strd);
-		LPCWSTR wszClassName2 = new WCHAR[str3.GetLength() + 1];
-		wcscpy((LPTSTR)wszClassName2, T2W((LPTSTR)str3.GetBuffer(NULL)));
-		str3.ReleaseBuffer();
-		SendMessage((hWndComboBox), 0x0143, 0L, (LPARAM)(LPCTSTR)("磁盘" + str2 + "     大小："+str3+" GB"));
-		SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+string exec(const char* cmd) {
+	// 创建一个管道，用于读取命令的输出
+	FILE* pipe = _popen(cmd, "r");
+	// 如果管道创建失败，返回空字符串
+	if (!pipe) return "";
+	// 创建一个字符串变量，用于存储输出
+	string result = "";
+	// 创建一个字符数组，用于读取每一行的输出
+	char buffer[128];
+	// 循环读取管道中的数据，直到结束
+	while (!feof(pipe)) {
+		// 如果能够从管道中读取一行数据，将其追加到结果字符串中
+		if (fgets(buffer, 128, pipe) != NULL)
+			result += buffer;
 	}
+	// 关闭管道
+	_pclose(pipe);
+	// 返回结果字符串
+	return result;
 }
 
+string loading = "正在创建目录...";
+enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, union wimlib_progress_info* info, void* progctx)
+{
+	switch (msg_type) {
+	case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_BEGIN:
+		OutputDebugString(STRING2LPCWSTR("开始写入\n"));
+		MoveWindow(barfw, 0, 425, 0, 15,TRUE);
+		break;
+	case WIMLIB_PROGRESS_MSG_EXTRACT_FILE_STRUCTURE:
+		OutputDebugString(STRING2LPCWSTR("创建目录\n"));
+		if (loading == "正在创建目录...") {
+			loading = "正在创建目录.";
+		}else if (loading == "正在创建目录.") {
+			loading = "正在创建目录..";
+		}
+		else if (loading == "正在创建目录..") {
+			loading = "正在创建目录...";
+		}
+		SetWindowText(protxt, STRING2LPCWSTR(loading));
+		break;
+	case WIMLIB_PROGRESS_MSG_EXTRACT_METADATA:
+		OutputDebugString(STRING2LPCWSTR("写入数据\n"));
+		if (loading == "正在完成配置...") {
+			loading = "正在完成配置.";
+		}
+		else if (loading == "正在完成配置.") {
+			loading = "正在完成配置..";
+		}
+		else if (loading == "正在完成配置..") {
+			loading = "正在完成配置...";
+		}
+		SetWindowText(protxt, STRING2LPCWSTR(loading));
+		break;
+	case WIMLIB_PROGRESS_MSG_EXTRACT_STREAMS:
+	{
+		OutputDebugString(STRING2LPCWSTR("正在写入\n"));
+		SetWindowText(protxt, STRING2LPCWSTR("正在写入..." + to_string((float)info->extract.completed_bytes /(float)info->extract.total_bytes * 100)+"%"));
+		float tarloca = (float)info->extract.completed_bytes / (float)info->extract.total_bytes * 640;
+		MoveWindow(barfw, 0 , 425, tarloca, 15, TRUE);
+		break;
+	}
+	case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_END:
+		SetWindowText(protxt, L"");
+		OutputDebugString(STRING2LPCWSTR("结束写入\n"));
+		MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+		break;
+	}
+	return WIMLIB_PROGRESS_STATUS_CONTINUE;
+}
+
+void GetDrivelist() {
+	SendMessage(hWndComboBox, CB_RESETCONTENT, 0, 0);
+	string input = exec(".\\GetDriveList.exe");
+	getline(cin, input);
+	// 创建一个字符串流对象，用于处理input
+	stringstream ss(input);
+	// 创建一个string变量，用于存储每一段分割后的字符串
+	string segment;
+	// 循环从字符串流中读取数据，以换行符为分隔符
+	while (getline(ss, segment, '\n')) {
+		// 输出每一段分割后的字符串
+		SendMessage((hWndComboBox), 0x0143, 0L, (LPARAM)(LPCTSTR)STRING2LPCWSTR(segment));
+	}
+	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+}
 void GetWimSysInfo(TCHAR* wimstr) {
 	SendMessage(hWndComboBox4, CB_RESETCONTENT, 0, 0);
 	WIMStruct *WIMFile;
@@ -400,6 +454,8 @@ void GetWimSysInfo(TCHAR* wimstr) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+	AllocConsole();    //为调用进程分配一个新的控制台
+	ShowWindow(GetConsoleWindow(), SW_HIDE);
 	WNDCLASS wndcls; //创建一个窗体类
 	wndcls.cbClsExtra = 0;//类的额外内存，默认为0即可
 	wndcls.cbWndExtra = 0;//窗口的额外内存，默认为0即可
@@ -466,6 +522,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		(HMENU)ghobt,       // No menu.
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
+	barbg = CreateWindow(
+		L"STATIC",
+		L"",
+		WS_VISIBLE|WS_CHILD,
+		0,
+		425,
+		640,
+		15,
+		hwnd,
+		NULL,
+		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	protxt = CreateWindow(
+		L"STATIC",
+		L"",
+		WS_VISIBLE | WS_CHILD,
+		0,
+		400,
+		300,
+		15,
+		hwnd,
+		NULL,
+		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	barfw = CreateWindow(
+		L"STATIC",
+		L"",
+		WS_VISIBLE | WS_CHILD,
+		0,
+		425,
+		0,
+		15,
+		hwnd,
+		NULL,
+		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
 	btnwim = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
 		L"WIM/ESD模式",      // Button text 
@@ -480,7 +572,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);      // Pointer not needed.
 	btnxp = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"旧版Windows模式",      // Button text 
+		L"NT5.x模式",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT,  // Styles 
 		22,         // x position 
 		223,         // y position 
@@ -527,17 +619,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		(HMENU)logobt,       // No menu.
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
-	hpbar = CreateWindowEx(0,
-		PROGRESS_CLASS, (LPTSTR)NULL,
-		WS_VISIBLE | WS_CHILD | PBS_MARQUEE,  // Styles 
-		0,         // x position 
-		424,         // y position 
-		624,        // Button width
-		17,        // Button height
-		hwnd,     // Parent window
-		NULL,       // No menu.
-		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);      // Pointer not needed.
 	hFont = CreateFont(20,                                    //   字体的高度   
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
@@ -569,11 +650,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	hTabCtrl = CreateWindowEx(0, TEXT("SysTabControl32"), NULL,WS_VISIBLE|WS_CHILD | TCS_TABS,
 		233, 45, 372, 355, hWnd, (HMENU)10001, hInstance, 0);
 	::SendMessage(btndisk, WM_SETFONT, (WPARAM)hFont, 1);
+	::SendMessage(protxt, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(btnghost, WM_SETFONT, (WPARAM)hFont, 1);
 	::SendMessage(btnwim, WM_SETFONT, (WPARAM)hFont, 1);
 	::SendMessage(btnxp, WM_SETFONT, (WPARAM)hFont, 1);
 	::SendMessage(btnreboot, WM_SETFONT, (WPARAM)hFont, 1);
 	::SendMessage(btnlogo, BM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)logo);
+	HBITMAP ghologo = (HBITMAP)LoadImage(NULL, L".\\icons\\ghost.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	::SendMessage(btnghost,BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)ghologo);
+	HBITMAP wimlogo = (HBITMAP)LoadImage(NULL, L".\\icons\\wim.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	::SendMessage(btnwim, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)wimlogo);
+	HBITMAP xplogo = (HBITMAP)LoadImage(NULL, L".\\icons\\xp.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	::SendMessage(btnxp, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)xplogo);
+	HBITMAP disklogo = (HBITMAP)LoadImage(NULL, L".\\icons\\info.ico", IMAGE_ICON, 28, 28, LR_LOADFROMFILE);
+	::SendMessage(btndisk, BM_SETIMAGE, (WPARAM)IMAGE_ICON,(LPARAM)disklogo);
+	HBITMAP rebootlogo = (HBITMAP)LoadImage(NULL, L".\\icons\\reboot.ico", IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
+	::SendMessage(btnreboot, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)rebootlogo);
 	TCITEM item1, item2, item3, item4;
 	// 设置第一个选项卡项的文本和图像索引
 	item1.mask = TCIF_TEXT | TCIF_IMAGE;
@@ -682,7 +774,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND btre2 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 125, 64, 22, win2, (HMENU)wimdiskbt1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	
+	//SetWindowPos(barfw, NULL, 0, 425, 100, 15, SWP_NOMOVE);
 	::SendMessage(btfile2, WM_SETFONT, (WPARAM)hFont2, 1);
 	::SendMessage(btre2, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit2 = CreateWindow(L"edit", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
@@ -814,6 +906,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			else {
 				GetDrivelist();
+				GetDrivelist();
 			}
 			break;
 		}
@@ -825,6 +918,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case diskmode: {
+			GetDrivelist();
 			GetDrivelist();
 			ispar = false;
 			SendMessage(selectmodepar, BM_SETCHECK, 0, 0);
@@ -853,9 +947,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					}
 					else {
 						TCHAR root[1024] = { 0 };
-						ComboBox_GetText(hWndComboBox,root,1024);
-						string diskroot = TCHAR2STRING(root);
-						char target = diskroot.back();
+						char target = ComboBox_GetCurSel(hWndComboBox);
 						string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + TCHAR2STRING(dirs)+",dst="+target+" -sure";
 						system(ghostexec.c_str());
 					}
@@ -871,6 +963,73 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
 	}
 	return 0;
+}
+void writewim() {
+	TCHAR dirs[MAX_PATH] = { 0 };
+	Edit_GetText(edit2, dirs, MAX_PATH);
+	string dirstr = TCHAR2STRING(dirs);
+	::EnableWindow(win2,false);
+	::EnableWindow(btnghost, false);
+	::EnableWindow(btnxp, false);
+	::EnableWindow(btndisk, false);
+	::EnableWindow(btnreboot, false);
+	WIMStruct* WIM;
+	int result;
+	result = wimlib_open_wim_with_progress(dirs, 0, &WIM,ApplyWimImage,NULL);
+	if (result != 0) {
+		MessageBox(hWnd, L"未能成功打开WIM/ESD文件，请检查文件是否是正确的映像文件！", 0, MB_ICONERROR);
+		::EnableWindow(win2, true);
+		::EnableWindow(btnghost, true);
+		::EnableWindow(btnxp,true);
+		::EnableWindow(btndisk, true);
+		::EnableWindow(btnreboot, true);
+		return;
+	}
+	int cs = ComboBox_GetCurSel(hWndComboBox4) + 1;
+	TCHAR tar[MAX_PATH] = { 0 };
+	ComboBox_GetText(hWndComboBox2, tar, MAX_PATH);
+	TCHAR sor[MAX_PATH] = { 0 };
+	ComboBox_GetText(hWndComboBox4, sor, MAX_PATH);
+	int ec;
+	ec = wimlib_extract_image(WIM, cs, tar, NULL);
+	//
+	if (ec != 0) {
+		noerror = 1;
+		wimlib_free(WIM);
+		MessageBox(hWnd, STRING2LPCWSTR("应用WIM/ESD映像的时候发生错误，错误代码：" + TCHAR2STRING((TCHAR*)(wimlib_get_error_string((wimlib_error_code)ec)))), 0, MB_ICONERROR);
+		::EnableWindow(win2, true);
+		::EnableWindow(btnghost, true);
+		::EnableWindow(btnxp, true);
+		::EnableWindow(btndisk, true);
+		::EnableWindow(btnreboot, true);
+		return;
+	}
+	wimlib_free(WIM);
+	TCHAR uad[1024] = { 0 };
+	Edit_GetText(edit3, uad, 1024);
+	string uadfile = TCHAR2STRING(uad);
+	if (isFileExists_ifstream(uadfile)) {
+		CopyFile(uad, STRING2LPCWSTR(TCHAR2STRING(tar) + "Windows\\Panther\\unattend.xml"), false);
+	}
+	//
+	if (GetFirmware() == "UEFI") {
+		TCHAR boot[1024] = { 0 };
+		ComboBox_GetText(hWndComboBox3, boot, 1024);
+		string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s " + TCHAR2STRING(boot).at(0) + ": /f UEFI";
+		system(cmd.c_str());
+	}
+	else {
+		string cmd = ".\\bootsect.exe /nt60 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
+		system(cmd.c_str());
+	}
+	//
+	MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONINFORMATION);
+	::EnableWindow(win2, true);
+	::EnableWindow(btnghost, true);
+	::EnableWindow(btnxp, true);
+	::EnableWindow(btndisk, true);
+	::EnableWindow(btnreboot, true);
+	return;
 }
 LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -940,8 +1099,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case wimstartbt:
 		{
-			TCHAR dirs[1024] = { 0 };
-			Edit_GetText(edit2, dirs, 1024);
+			TCHAR dirs[MAX_PATH] = { 0 };
+			Edit_GetText(edit2, dirs, MAX_PATH);
 			string dirstr = TCHAR2STRING(dirs);
 			if (!isFileExists_ifstream(dirstr))
 			{
@@ -951,54 +1110,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
 				{
-					SendMessage(hpbar, PBM_SETRANGE,0,MAKELPARAM(0,4));
-					::EnableWindow(btwimstart, false);
-					WIMStruct* WIM;
-					int result;
-					result = wimlib_open_wim(dirs, 0, &WIM);
-					if (result != 0) {
-						MessageBox(hWnd, L"未能成功打开WIM/ESD文件，请检查文件是否是正确的映像文件！", 0, MB_ICONERROR);
-						::EnableWindow(btwimstart, true);
-						break;
-					}
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					//
-					int cs = ComboBox_GetCurSel(hWndComboBox4) + 1;
-					TCHAR tar[1024] = { 0 };
-					ComboBox_GetText(hWndComboBox2, tar, 1024);
-					result = wimlib_extract_image(WIM, cs, tar, NULL);
-					if (result != 0) {
-						MessageBox(hWnd, STRING2LPCWSTR("应用WIM/ESD映像的时候发生错误，错误代码：" + to_string(result)), 0, MB_ICONERROR);
-						::EnableWindow(btwimstart, true);
-						wimlib_free(WIM);
-						break;
-					}
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					//
-					wimlib_free(WIM);
-					TCHAR uad[1024] = { 0 };
-					Edit_GetText(edit3, uad, 1024);
-					string uadfile = TCHAR2STRING(uad);
-					if (isFileExists_ifstream(uadfile)) {
-						CopyFile(uad, STRING2LPCWSTR(TCHAR2STRING(tar) + "Windows\\Panther\\unattend.xml"),false);
-					}
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					//
-					if (GetFirmware() == "UEFI") {
-						TCHAR boot[1024] = { 0 };
-						ComboBox_GetText(hWndComboBox3, boot, 1024);
-						string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s "+TCHAR2STRING(boot).at(0)+": /f UEFI";
-						system(cmd.c_str());
-					}
-					else {
-						string cmd = ".\\bootsect.exe /nt60 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
-						system(cmd.c_str());
-					}
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					//
-					MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONINFORMATION);
-					::EnableWindow(btwimstart, true);
-					SendMessage(hpbar, PBM_SETPOS, 0, 0);
+					thread t(writewim);
+					t.detach();
 					break;
 				}
 			}
@@ -1010,6 +1123,104 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
 	}
 	return 0;
+}
+
+void CopyXPFile() {
+	::EnableWindow(win3, false);
+	::EnableWindow(btnghost, false);
+	::EnableWindow(btnwim, false);
+	::EnableWindow(btndisk, false);
+	::EnableWindow(btnreboot, false);
+	TCHAR tar[1024] = { 0 };
+	ComboBox_GetText(hWndComboBox5, tar, 1024);
+	string tarstr = TCHAR2STRING(tar);
+	TCHAR dirs[1024] = { 0 };
+	Edit_GetText(edit4, dirs, 1024);
+	string dirstr = TCHAR2STRING(dirs);
+	TCHAR i86fdr[1024] = { 0 };
+	string path = tarstr + "$WIN_NT$.~BT";
+	bool flag = CreateDirectory(STRING2LPCWSTR(path), NULL);
+	string filelist[] = { "1394BUS.SY_","ABP480N5.SY_","ACPI.SY_","ACPIEC.SY_","ADPU160M.SY_","AHA154X.SY_","AIC78U2.SY_","AIC78XX.SY_","ALIIDE.SY_","AMSINT.SY_","ASC.SY_","ASC3350P.SY_","ASC3550.SY_","ATAPI.SY_","BIOSINFO.INF","BOOTFONT.BIN","BOOTVID.DL_","CBIDF2K.SY_","CD20XRNT.SY_","CDFS.SY_","CDROM.SY_","CLASSPNP.SY_","CMDIDE.SY_","CPQARRAY.SY_","C_936.NL_","DAC2W2K.SY_","DAC960NT.SY_","DISK.SY_","disk1","DMBOOT.SY_","DMIO.SY_","DMLOAD.SY_","DPTI2O.SY_","DRVMAIN.SDB","FASTFAT.SY_","FDC.SY_","FLPYDISK.SY_","FTDISK.SY_","HAL.DL_","HALAACPI.DL_","HALACPI.DL_","HALAPIC.DL_","HIDCLASS.SY_","HIDPARSE.SY_","HIDUSB.SY_","HPN.SY_","I2OMGMT.SY_","I2OMP.SY_","I8042PRT.SY_","INI910U.SY_","INTELIDE.SY_","ISAPNP.SY_","KBDCLASS.SY_","KBDHID.SY_","KBDUS.DLL","KD1394.DL_","KDCOM.DL_","KSECDD.SYS","LBRTFDC.SY_","L_INTL.NL_","migrate.inf","MOUNTMGR.SY_","MRAID35X.SY_","NTDETECT.COM","NTFS.SYS","NTKRNLMP.EX_","NTLDR","OHCI1394.SY_","OPRGHDLR.SY_","PARTMGR.SY_","PCI.SY_","PCIIDE.SY_","PCIIDEX.SY_","PCMCIA.SY_","PERC2.SY_","PERC2HIB.SY_","QL1080.SY_","QL10WNT.SY_","QL12160.SY_","QL1240.SY_","QL1280.SY_","RAMDISK.SY_","SBP2PORT.SY_","SCSIPORT.SY_","SERENUM.SY_","SERIAL.SY_","SETUPDD.SY_","SETUPLDR.BIN","SETUPREG.HIV","SFLOPPY.SY_","SPARROW.SY_","SPCMDCON.SYS","SPDDLANG.SY_","SYMC810.SY_","SYMC8XX.SY_","SYM_HI.SY_","SYM_U3.SY_","TFFSPORT.SY_","TOSIDE.SY_","TXTSETUP.SIF","ULTRA.SY_","USBCCGP.SY_","USBD.SY_","USBEHCI.SY_","USBHUB.SY_","USBOHCI.SY_","USBPORT.SY_","USBSTOR.SY_","USBUHCI.SY_","VGA.SY_","VGAOEM.FO_","VIAIDE.SY_","VIDEOPRT.SY_","WINNT.SIF","WMILIB.SY_" };
+	int a = 0;
+	for (string file : filelist) {
+		try {
+			a++;
+			CopyFile(STRING2LPCWSTR(dirstr+"\\" + file), STRING2LPCWSTR(path + "\\" + file), FALSE);
+			SetWindowText(protxt, STRING2LPCWSTR("复制启动文件文件：" + file));
+			MoveWindow(barfw, 0, 425, (float)a*(640/114), 15, TRUE);
+		}
+		catch (exception) {
+			MessageBox(hWnd, L"复制文件错误！未成功找到文件，请确认文件夹是否正确！", 0, MB_ICONERROR);
+			SetWindowText(protxt, STRING2LPCWSTR(""));
+			MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+			::EnableWindow(win3, true);
+			::EnableWindow(btnghost, true);
+			::EnableWindow(btnwim, true);
+			::EnableWindow(btndisk, true);
+			::EnableWindow(btnreboot, true);
+			return;
+		}
+	}
+	try {
+		SetWindowText(protxt, STRING2LPCWSTR("复制SYSTEM32文件夹..."));
+		CreateDirectory(STRING2LPCWSTR(path+"\\SYSTEM32"), NULL);
+		filesystem::copy(dirstr + "\\SYSTEM32", path + "\\SYSTEM32", filesystem::copy_options::recursive);
+		MoveWindow(barfw, 0, 425, 113*(640 / 114), 15, TRUE);
+		SetWindowText(protxt, STRING2LPCWSTR("复制安装文件夹..."));
+		CreateDirectory(STRING2LPCWSTR(tarstr + "$WIN_NT$.~LS"), NULL);
+		CreateDirectory(STRING2LPCWSTR(tarstr + "$WIN_NT$.~LS\\I386"), NULL);
+		filesystem::copy(dirstr, tarstr + "$WIN_NT$.~LS\\I386", filesystem::copy_options::recursive);
+		MoveWindow(barfw, 0, 425, 640, 15, TRUE);
+	}
+	catch (exception) {
+		MessageBox(hWnd, L"复制文件夹错误！未成功找到文件夹，请确认文件夹是否正确！", 0, MB_ICONERROR);
+		SetWindowText(protxt, STRING2LPCWSTR(""));
+		MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+		::EnableWindow(win3, true);
+		::EnableWindow(btnghost, true);
+		::EnableWindow(btnwim, true);
+		::EnableWindow(btndisk, true);
+		::EnableWindow(btnreboot, true);
+		return;
+	}
+	fstream f;
+	string sifolder = tarstr + "$WIN_NT$.~BT\\WINNT.SIF";
+	f.open(sifolder, ios::out);
+	f << "[Data]\nFloppyLess = 1\nMsDosInitiated = 1\nUnattendedInstall = \"Yes\"\n\n[Unattended]\nTargetPath = Windows\nOemSkipEula = Yes" << endl;
+	f.close();
+	fstream f2;
+	string sifolder2 = tarstr + "$WIN_NT$.~BT\\migrate.inf";
+	f2.open(sifolder2, ios::out);
+	string mig = "[Version]\n\
+Signature = \"$Windows NT$\"\n\
+\n\
+[Addreg]\n\
+HKLM, \"SYSTEM\\MountedDevices\", , 0x00000010\n\
+HKLM, \"SYSTEM\\MountedDevices\", \"\\DosDevices\\C:\", 0x00030001, \\\
+be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
+	f2 << mig << endl;
+	f2.close();
+	TCHAR txtfile[1024] = { 0 };
+	Edit_GetText(edit5, txtfile, 1024);
+	if (isFileExists_ifstream(TCHAR2STRING(txtfile))) {
+		CopyFile(txtfile, STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\WINNT.SIF"), false);
+	}
+	SetWindowText(protxt, STRING2LPCWSTR("更新引导..."));
+	string cmd = ".\\bootsect.exe /nt52 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
+	CopyFile(STRING2LPCWSTR(dirstr + "\\NTDETECT.COM"), STRING2LPCWSTR(tarstr + "NTDETECT.COM"), false);
+	CopyFile(STRING2LPCWSTR(dirstr + "\\TXTSETUP.SIF"), STRING2LPCWSTR(tarstr + "TXTSETUP.SIF"), false);
+	CopyFile(STRING2LPCWSTR(dirstr + "\\BOOTFONT.BIN"), STRING2LPCWSTR(tarstr + "BOOTFONT.BIN"), false);
+	CopyFile(L".\\NTLDR", STRING2LPCWSTR(tarstr + "NTLDR"), false);
+	system(cmd.c_str());
+	MessageBox(hWnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
+	SetWindowText(protxt, STRING2LPCWSTR(""));
+	MoveWindow(barfw, 0, 425,0, 15, TRUE);
+	::EnableWindow(win3, true);
+	::EnableWindow(btnghost, true);
+	::EnableWindow(btnwim, true);
+	::EnableWindow(btndisk, true);
+	::EnableWindow(btnreboot, true);
+	return;
 }
 
 LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) //该子窗口消息不会被处理，测试阶段
@@ -1088,65 +1299,8 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			else {
 				if (MessageBox(hwnd, L"确认安装NT5.x的操作系统吗？期间请勿进行任何操作。", L"提示：", MB_ICONQUESTION | MB_OKCANCEL) == IDOK)
 				{
-					::EnableWindow(btxpstart, false);
-					TCHAR tar[1024] = { 0 };
-					ComboBox_GetText(hWndComboBox5, tar, 1024);
-					string tarstr = TCHAR2STRING(tar);
-					TCHAR i86fdr[1024] = { 0 };
-					string path = tarstr + "$WIN_NT$.~BT";
-					bool flag = CreateDirectory(STRING2LPCWSTR(path), NULL);
-					SendMessage(hpbar, PBM_SETRANGE,0, MAKELPARAM(0, 10));
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					string copycmd = ".\\CopyXPFiles.exe " + dirstr + "\\ " + tarstr+"$WIN_NT$.~BT";
-					int result = WinExec(copycmd.c_str(), SW_HIDE);
-					if(result == 0)
-					{
-						SendMessage(hpbar, PBM_SETPOS, 0, 0);
-						::EnableWindow(btxpstart, true);
-						MessageBox(hwnd, L"文件目录不完整！请确认您所指定的I386文件夹是否完整，以及目标磁盘是否已被清空！", NULL, MB_ICONERROR);
-						break;
-					}
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					fstream f;
-					string sifolder = tarstr + "$WIN_NT$.~BT\\WINNT.SIF";
-					f.open(sifolder, ios::out);
-					f << "[Data]\nFloppyLess = 1\nMsDosInitiated = 1\nUnattendedInstall = \"Yes\"\n\n[Unattended]\nTargetPath = Windows\nOemSkipEula = Yes" << endl;
-					f.close();
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					fstream f2;
-					string sifolder2 = tarstr + "$WIN_NT$.~BT\\migrate.inf";
-					f2.open(sifolder2, ios::out);
-					string mig = "[Version]\n\
-Signature = \"$Windows NT$\"\n\
-\n\
-[Addreg]\n\
-HKLM, \"SYSTEM\\MountedDevices\", , 0x00000010\n\
-HKLM, \"SYSTEM\\MountedDevices\", \"\\DosDevices\\C:\", 0x00030001, \\\
-be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
-					f2 << mig << endl;
-					f2.close();
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					TCHAR txtfile[1024] = { 0 };
-					Edit_GetText(edit5, txtfile, 1024);
-					if (isFileExists_ifstream(TCHAR2STRING(txtfile))) {
-						CopyFile(txtfile, STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\WINNT.SIF"), false);
-					}
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					string cmd = ".\\bootsect.exe /nt52 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
-					CopyFile(STRING2LPCWSTR(dirstr + "\\NTDETECT.COM"), STRING2LPCWSTR(tarstr + "NTDETECT.COM"), false);
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					CopyFile(STRING2LPCWSTR(dirstr + "\\TXTSETUP.SIF"), STRING2LPCWSTR(tarstr + "TXTSETUP.SIF"), false);
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					CopyFile(STRING2LPCWSTR(dirstr + "\\BOOTFONT.BIN"), STRING2LPCWSTR(tarstr + "BOOTFONT.BIN"), false);
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					CopyFile(L".\\NTLDR", STRING2LPCWSTR(tarstr + "NTLDR"), false);
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					system(cmd.c_str());
-					SendMessage(hpbar, PBM_DELTAPOS, 1, 0);
-					MessageBox(hwnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
-					::EnableWindow(btxpstart, true);
-					SendMessage(hpbar, PBM_SETPOS, 0, 0);
-					break;
+					thread t(CopyXPFile);
+					t.detach();
 					}
 				}
 				break;
@@ -1264,6 +1418,16 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 		PostQuitMessage(0);//发出WM_QUIT消息，结束消息循环
 		break;
+	case WM_CTLCOLORSTATIC:
+	{
+		if ((HWND)lParam == barfw) {
+			return (INT_PTR)CreateSolidBrush(RGB(0,0,64));
+		}
+		if ((HWND)lParam == barbg) {
+			return (INT_PTR)CreateSolidBrush(RGB(236, 237, 255));
+		}
+		break;
+	}
 	default:
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
 	}
