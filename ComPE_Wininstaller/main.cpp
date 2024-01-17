@@ -512,7 +512,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	hWnd = hwnd;
 	btnghost = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"Ghost模式",      // Button text 
+		L"Ghost还原",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT ,  // Styles 
 		22,         // x position 
 		107,         // y position 
@@ -560,7 +560,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	btnwim = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"WIM模式",      // Button text 
+		L"WIM映像应用",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT,  // Styles 
 		22,         // x position 
 		165,         // y position 
@@ -572,7 +572,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);      // Pointer not needed.
 	btnxp = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"NT5.x模式",      // Button text 
+		L"NT5.x安装",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON | BS_FLAT,  // Styles 
 		22,         // x position 
 		223,         // y position 
@@ -596,7 +596,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);      // Pointer not needed.
 	btndisk = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
-		L"程序说明书",      // Button text 
+		L"程序使用说明",      // Button text 
 		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON |BS_FLAT,  // Styles 
 		22,         // x position 
 		281,         // y position 
