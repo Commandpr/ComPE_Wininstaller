@@ -827,6 +827,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		100, 134, 180, 18, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	::SendMessage(hWndComboBox5, WM_SETFONT, (WPARAM)hFont2, 1);
+	string fm;
+	if (GetFirmware() == "BIOS") {
+		fm = "Legacy";
+	}
+	else {
+		fm = GetFirmware();
+	}
+	HWND firm = CreateWindow(L"STATIC",STRING2LPCWSTR("当前启动类型："+fm),WS_VISIBLE|WS_CHILD,490,404,200,20,hwnd,NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	::SendMessage(firm, WM_SETFONT, (WPARAM)hFont2, 1);
 	HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 134, 64, 22, win3, (HMENU)xpdiskbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
@@ -1317,10 +1327,6 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-
-	TCHAR msg[] = L"当前启动类型：";
-	TCHAR msg2[8];
-	swprintf(msg2, 8, L"%S", GetFirmware().c_str());
 	TCHAR msg3[] = L"纯净安全且简洁的Windows PE维护系统";
 	TCHAR msg4[] = L"Copyright © 2024 ComPE-纯净且简洁的Windows PE系统";
 	switch (uMsg)//通过判断消息进行消息响应
@@ -1344,8 +1350,8 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		SetBkMode(hdc, TRANSPARENT);
 		SetTextColor(hdc, RGB(0, 0, 64));
 		SelectObject(hdc, hFont2);
-		TextOut(hdc, 510, 405, msg, _tcslen(msg));
-		TextOut(hdc, 590, 405, msg2, _tcslen(msg2));
+		//TextOut(hdc, 510, 405, msg, _tcslen(msg));
+		//TextOut(hdc, 590, 405, msg2, _tcslen(msg2));
 		TextOut(hdc, 12, 83, msg3, _tcslen(msg3));
 		TextOut(hdc, 254, 16, msg4, _tcslen(msg4));
 		EndPaint(hwnd, &ps);
