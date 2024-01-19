@@ -403,7 +403,7 @@ enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, uni
 		break;
 	default:
 	{
-		SetWindowText(protxt, L"安装中...");
+		SetWindowText(protxt, L"正在进行安装...");
 		break;
 	}
 	}
