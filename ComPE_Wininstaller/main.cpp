@@ -401,12 +401,12 @@ enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, uni
 		OutputDebugString(STRING2LPCWSTR("结束写入\n"));
 		MoveWindow(barfw, 0, 425, 0, 15, TRUE);
 		break;
+	default:
+	{
+		SetWindowText(protxt, L"安装中...");
+		break;
 	}
-		default:
-		{
-      SetWindowText(protxt, L"完成安装...");
-      break;
-		}
+	}
 	return WIMLIB_PROGRESS_STATUS_CONTINUE;
 }
 
