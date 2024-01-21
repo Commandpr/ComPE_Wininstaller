@@ -4,7 +4,6 @@
 #include <Windows.h>
 #include <io.h>
 #include <windowsx.h>
-#include <fcntl.h>
 #include <tchar.h>
 #include <stdio.h>
 #include <iostream>
@@ -14,8 +13,6 @@
 #include <filesystem>
 #include <CommCtrl.h>
 #include <atlimage.h>
-#include <future>
-#include <functional>
 #include <thread>
 #include <regex>
 #include <vector>
@@ -703,7 +700,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 	win1 = CreateWindow(L"INWIN1", L"",
-		WS_CHILD | WS_VISIBLE | WS_BORDER,
+		WS_CHILD|WS_VISIBLE | WS_BORDER,
 		0, 0, 372, 355,        // Position and dimensions; example only.
 		hTabCtrl, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),   // g_hInst is the global instance handle
 		NULL);
