@@ -237,6 +237,7 @@ bool improvePv()
 bool powerOffProc()
 {
 	if (!improvePv() || !ExitWindowsEx(EWX_REBOOT | EWX_FORCE, SHTDN_REASON_MAJOR_APPLICATION))
+		system("wpeutil reboot");
 		return false;
 	return true;
 }
