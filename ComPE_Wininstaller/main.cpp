@@ -873,7 +873,38 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 	return 0;
 }
-
+void ghost() {
+	TCHAR dirs[1024] = { 0 };
+	Edit_GetText(edit, dirs, 1024);
+	string dirstr = TCHAR2STRING(dirs);
+	if (!isFileExists_ifstream(dirstr)) {
+		MessageBox(hWnd, L"请选择正确的GHO文件！", L"错误：", MB_ICONERROR);
+	}
+	else {
+		if (MessageBox(hWnd, L"确认应用Ghost映像吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES) {
+			::EnableWindow(ghostartbtn, false);
+			if (ispar) {
+				TCHAR disk[3] = { 0 };
+				char roots[7] = "\\\\.\\";
+				ComboBox_GetText(hWndComboBox, disk, 3);
+				string target = TCHAR2STRING(disk);
+				const char* tg = strcat(roots, target.c_str());
+				int pn = GetPartitionNumber(tg);
+				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy((char*)malloc(target.length() + 1), target.c_str())) + 1) + ":" + to_string(pn) + " -sure";
+				system(ghostexec.c_str());
+			}
+			else {
+				TCHAR disk[MAX_PATH] = { 0 };
+				ComboBox_GetText(hWndComboBox, disk, MAX_PATH);
+				string target = to_string(TCHAR2STRING(disk).at(0));
+				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + TCHAR2STRING(dirs) + ",dst=" + target + " -sure";
+				system(ghostexec.c_str());
+			}
+			::EnableWindow(ghostartbtn, true);
+			MessageBox(hWnd, L"执行完成！重启计算机后将进行进一步安装Windows操作（以Ghost官方提示为准）！", L"成功：", MB_ICONINFORMATION);
+		}
+	}
+}
 
 LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -910,12 +941,9 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		switch (LOWORD(wParam))
 		{
 		case gholoadbt:
-		{
 			Edit_SetText(edit, GetGhoFile(L"Ghost映像文件(*.gho)\0*.gho\0\0"));
 			break;
-		}
 		case ghodiskbt:
-		{
 			if (ispar) {
 				AddDiskList(hWndComboBox);
 			}
@@ -924,56 +952,24 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				GetDrivelist();
 			}
 			break;
-		}
-		case parmode: {
+		case parmode:
 			AddDiskList(hWndComboBox);
 			ispar = true;
 			SendMessage(selectmodepar, BM_SETCHECK, 1, 0);
 			SendMessage(selectmodedisk, BM_SETCHECK, 0, 0);
 			break;
-		}
-		case diskmode: {
+		case diskmode:
 			GetDrivelist();
 			GetDrivelist();
 			ispar = false;
 			SendMessage(selectmodepar, BM_SETCHECK, 0, 0);
 			SendMessage(selectmodedisk, BM_SETCHECK, 1, 0);
 			break;
-		}
-		case ghostartbt: {
-			TCHAR dirs[1024] = { 0 };
-			Edit_GetText(edit, dirs, 1024);
-			string dirstr = TCHAR2STRING(dirs);
-			if (!isFileExists_ifstream(dirstr)) {
-				MessageBox(hwnd, L"请选择正确的GHO文件！", L"错误：", MB_ICONERROR);
-			}
-			else {
-				if (MessageBox(hwnd, L"确认应用Ghost映像吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES) {
-					::EnableWindow(ghostartbtn, false);
-					if (ispar) {
-						TCHAR disk[3] = { 0 };
-						char roots[7] = "\\\\.\\";
-						ComboBox_GetText(hWndComboBox, disk, 3);
-						string target = TCHAR2STRING(disk);
-						const char* tg = strcat(roots, target.c_str());
-						int pn = GetPartitionNumber(tg);
-						string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy((char*)malloc(target.length() + 1), target.c_str())) + 1) + ":" + to_string(pn) + " -sure";
-						system(ghostexec.c_str());
-					}
-					else {
-						TCHAR disk[MAX_PATH] = { 0 };
-						ComboBox_GetText(hWndComboBox, disk, MAX_PATH);
-						string target = to_string(TCHAR2STRING(disk).at(0));
-						string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + TCHAR2STRING(dirs) + ",dst=" + target + " -sure";
-						system(ghostexec.c_str());
-					}
-					::EnableWindow(ghostartbtn, true);
-					MessageBox(hWnd, L"执行完成！重启计算机后将进行进一步安装Windows操作（以Ghost官方提示为准）！", L"成功：", MB_ICONINFORMATION);
-				}
-			}
+		case ghostartbt:
+			ghost();
+			break;
 		}
 		break;
-		}
 	}
 	default:
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
