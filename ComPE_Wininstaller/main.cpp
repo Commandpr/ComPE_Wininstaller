@@ -237,8 +237,7 @@ bool powerOffProc()
 {
 	if (!improvePv() || !ExitWindowsEx(EWX_REBOOT | EWX_FORCE, SHTDN_REASON_MAJOR_APPLICATION))
 	{
-		system("wpeutil reboot");
-		system("pecmd shut r");
+
 		return false;
 	}
 	return true;
@@ -1411,7 +1410,9 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			int ask = MessageBox(hwnd, L"确定要重启计算机，离开ComPE系统吗？若有操作正在进行，请确保其执行完毕后重启，否则可能造成设备损坏。\n重启请按“是”，否则请按“否”。", L"提示：", MB_YESNO | MB_ICONQUESTION);
 			if (ask == IDYES) {
-				powerOffProc();//不采用shutdown.exe，而是用API重启计算机，防止PE内无shutdown.exe导致无法重启
+				powerOffProc();
+				system("wpeutil reboot");
+				system("pecmd shut r");
 			}
 			break;
 		}
