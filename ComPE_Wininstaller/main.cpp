@@ -142,6 +142,7 @@ int GetPartitionNumber(const char* rootPath) {
 	}
 }
 string GetFirmware() {
+	return "BIOS";
 	FIRMWARE_TYPE ft;
 	GetFirmwareType(&ft);
 	switch (ft) {
@@ -788,17 +789,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 125, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
-	if (GetFirmware() == "UEFI") {
-		hWndComboBox3 = CreateWindow(WC_COMBOBOX, TEXT(""),
-			CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
-			100, 185, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-			NULL);
-		::SendMessage(hWndComboBox3, WM_SETFONT, (WPARAM)hFont2, 1);
-		HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-			280, 186, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-			NULL);
-		::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
-	}
+	hWndComboBox3 = CreateWindow(WC_COMBOBOX, TEXT(""),
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		100, 185, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	::SendMessage(hWndComboBox3, WM_SETFONT, (WPARAM)hFont2, 1);
+	HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		280, 186, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox4 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		100, 155, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -842,10 +841,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND firm = CreateWindow(L"STATIC", STRING2LPCWSTR("当前启动类型：" + fm), WS_VISIBLE | WS_CHILD, 490, 404, 200, 20, hwnd, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	::SendMessage(firm, WM_SETFONT, (WPARAM)hFont2, 1);
-	HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		280, 134, 64, 22, win3, (HMENU)xpdiskbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
+	//HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+	//	280, 134, 64, 22, win3, (HMENU)xpdiskbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+	//	NULL);
+	//::SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
 	HWND btdir = CreateWindow(L"BUTTON", L"选择文件夹", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 99, 64, 22, win3, (HMENU)xploadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
@@ -1051,7 +1050,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TCHAR msg4[] = L"          本页面可用于安装对应操作系统以及还原备份。";
 		TCHAR wimdir[] = L"WIM/ESD位置：";
 		TCHAR wimdisk[] = L"   安装目标：";
-		TCHAR wimbisk[] = L"EFI引导分区：";
+		TCHAR wimbisk[] = L"   引导分区：";
 		TCHAR wimos[] = L"   系统选择：";
 		TCHAR xmldir[] = L"  应答文件：";
 		TCHAR msg5[] = L"如果您是UEFI（请保证目标分区所在磁盘分区格式是GPT）";
@@ -1068,9 +1067,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TextOut(hdc, 32, 65, msg4, _tcslen(msg4));
 		TextOut(hdc, 12, 95, wimdir, _tcslen(wimdir));
 		TextOut(hdc, 31, 128, wimdisk, _tcslen(wimdisk));
-		if (GetFirmware() == "UEFI") {
-			TextOut(hdc, 27, 190, wimbisk, _tcslen(wimbisk));
-		}
+		TextOut(hdc, 31, 190, wimbisk, _tcslen(wimbisk));
 		TextOut(hdc, 31, 160, wimos, _tcslen(wimos));
 		TextOut(hdc, 21, 250, xmldir, _tcslen(xmldir));
 		TextOut(hdc, 32, 215, msg5, _tcslen(msg5));
