@@ -142,7 +142,6 @@ int GetPartitionNumber(const char* rootPath) {
 	}
 }
 string GetFirmware() {
-	return "BIOS";
 	FIRMWARE_TYPE ft;
 	GetFirmwareType(&ft);
 	switch (ft) {
