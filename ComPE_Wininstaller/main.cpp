@@ -1026,7 +1026,7 @@ void writewim() {
 	//
 	TCHAR boot[1024] = { 0 };
 	ComboBox_GetText(hWndComboBox3, boot, 1024);
-	string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s " + TCHAR2STRING(boot).at(0) + ": /f ALL";
+	string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s " + TCHAR2STRING(boot).at(0) + ": /f ALL /l zh-cn";
 	system(cmd.c_str());
 	cmd = ".\\bootsect.exe /nt60 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
 	system(cmd.c_str());
