@@ -1028,7 +1028,7 @@ void writewim() {
 	ComboBox_GetText(hWndComboBox3, boot, 1024);
 	string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s " + TCHAR2STRING(boot).at(0) + ": /f ALL";
 	system(cmd.c_str());
-	string cmd = ".\\bootsect.exe /nt60 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
+	cmd = ".\\bootsect.exe /nt60 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
 	system(cmd.c_str());
 	//
 	MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONINFORMATION);
