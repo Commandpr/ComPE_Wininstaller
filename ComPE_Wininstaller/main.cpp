@@ -354,51 +354,54 @@ string exec(const char* cmd) {
 	return result;
 }
 
-string loading = "正在创建目录...";
+string loading = "正在创建文件结构...";
 enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, union wimlib_progress_info* info, void* progctx)
 {
 	switch (msg_type) {
 	case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_BEGIN:
-		OutputDebugString(STRING2LPCWSTR("开始写入\n"));
 		MoveWindow(barfw, 0, 425, 0, 15, TRUE);
 		break;
 	case WIMLIB_PROGRESS_MSG_EXTRACT_FILE_STRUCTURE:
-		OutputDebugString(STRING2LPCWSTR("创建目录\n"));
-		if (loading == "正在创建目录...") {
-			loading = "正在创建目录.";
+		if (loading == "正在创建文件结构...") {
+			loading = "正在创建文件结构.";
 		}
-		else if (loading == "正在创建目录.") {
-			loading = "正在创建目录..";
+		else if (loading == "正在创建文件结构.") {
+			loading = "正在创建文件结构..";
 		}
-		else if (loading == "正在创建目录..") {
-			loading = "正在创建目录...";
+		else if (loading == "正在创建文件结构..") {
+			loading = "正在创建文件结构...";
+		}
+		else {
+			loading = "正在创建文件结构.";
 		}
 		SetWindowText(protxt, STRING2LPCWSTR(loading));
 		break;
 	case WIMLIB_PROGRESS_MSG_EXTRACT_METADATA:
-		OutputDebugString(STRING2LPCWSTR("写入数据\n"));
-		if (loading == "正在完成配置...") {
-			loading = "正在完成配置.";
+		if (loading == "正在写入属性...") {
+			loading = "正在写入属性.";
 		}
-		else if (loading == "正在完成配置.") {
-			loading = "正在完成配置..";
+		else if (loading == "正在写入属性.") {
+			loading = "正在写入属性..";
 		}
-		else if (loading == "正在完成配置..") {
-			loading = "正在完成配置...";
+		else if (loading == "正在写入属性..") {
+			loading = "正在写入属性...";
+		}
+		else {
+			loading = "正在写入属性.";
 		}
 		SetWindowText(protxt, STRING2LPCWSTR(loading));
 		break;
 	case WIMLIB_PROGRESS_MSG_EXTRACT_STREAMS:
 	{
-		OutputDebugString(STRING2LPCWSTR("正在写入\n"));
-		SetWindowText(protxt, STRING2LPCWSTR("正在写入..." + to_string((float)info->extract.completed_bytes / (float)info->extract.total_bytes * 100) + "%"));
+		float f = (float)info->extract.completed_bytes / (float)info->extract.total_bytes;
+		int f2 = round(f * 100);
+		SetWindowText(protxt, STRING2LPCWSTR("正在写入...[" + to_string(f2) + "%]"));
 		float tarloca = (float)info->extract.completed_bytes / (float)info->extract.total_bytes * 640;
 		MoveWindow(barfw, 0, 425, tarloca, 15, TRUE);
 		break;
 	}
 	case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_END:
 		SetWindowText(protxt, L"");
-		OutputDebugString(STRING2LPCWSTR("结束写入\n"));
 		MoveWindow(barfw, 0, 425, 0, 15, TRUE);
 		break;
 	default:
@@ -1022,6 +1025,7 @@ void writewim() {
 		CopyFile(uad, STRING2LPCWSTR(TCHAR2STRING(tar) + "Windows\\Panther\\unattend.xml"), false);
 	}
 	//
+	SetWindowText(protxt, L"创建引导...");
 	TCHAR boot[1024] = { 0 };
 	ComboBox_GetText(hWndComboBox3, boot, 1024);
 	string cmd = "bcdboot " + TCHAR2STRING(tar) + "Windows /s " + TCHAR2STRING(boot).at(0) + ": /f ALL /l zh-cn";
@@ -1030,6 +1034,7 @@ void writewim() {
 	system(cmd.c_str());
 	//
 	MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONINFORMATION);
+	SetWindowText(protxt, L"");
 	::EnableWindow(win2, true);
 	::EnableWindow(btnghost, true);
 	::EnableWindow(btnxp, true);
@@ -1209,7 +1214,7 @@ be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
 	if (isFileExists_ifstream(TCHAR2STRING(txtfile))) {
 		CopyFile(txtfile, STRING2LPCWSTR(tarstr + "$WIN_NT$.~BT\\WINNT.SIF"), false);
 	}
-	SetWindowText(protxt, STRING2LPCWSTR("更新引导..."));
+	SetWindowText(protxt, L"更新引导...");
 	string cmd = ".\\bootsect.exe /nt52 " + to_string(TCHAR2STRING(tar).at(0)) + ": /mbr";
 	SetWindowText(protxt, STRING2LPCWSTR("复制引导文件..."));
 	CopyFile(STRING2LPCWSTR(dirstr + "\\NTDETECT.COM"), STRING2LPCWSTR(tarstr + "NTDETECT.COM"), false);
@@ -1218,7 +1223,7 @@ be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
 	CopyFile(L".\\NTLDR", STRING2LPCWSTR(tarstr + "NTLDR"), false);
 	system(cmd.c_str());
 	MessageBox(hWnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
-	SetWindowText(protxt, STRING2LPCWSTR(""));
+	SetWindowText(protxt, L"");
 	MoveWindow(barfw, 0, 425, 0, 15, TRUE);
 	::EnableWindow(win3, true);
 	::EnableWindow(btnghost, true);
