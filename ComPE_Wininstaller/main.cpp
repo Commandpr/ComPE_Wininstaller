@@ -449,14 +449,26 @@ void GetWimSysInfo(TCHAR* wimstr) {
 	}
 	wimlib_free(WIMFile);
 	_bstr_t a((wchar_t*)xml_data);
-	const char* xml_file = a;
+	const char* xml_file = a;;
 	regex r("<DISPLAYNAME>(.*?)</DISPLAYNAME>");
 	string xml = xml_file;
 	sregex_iterator it(xml.begin(), xml.end(), r);
 	sregex_iterator end;
+	bool havedn = false;
 	while (it != end) {
 		ComboBox_AddString(hWndComboBox4, STRING2LPCWSTR(it->str(1)));
+		havedn = true;
 		it++;
+	}
+	if (havedn == false) {
+		regex r2("<NAME>(.*?)</NAME>");
+		string xml2 = xml_file;
+		sregex_iterator it2(xml2.begin(), xml2.end(), r2);
+		sregex_iterator end2;
+		while (it2 != end2) {
+			ComboBox_AddString(hWndComboBox4, STRING2LPCWSTR(it2->str(1)));
+			it2++;
+		}
 	}
 	SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
@@ -896,8 +908,13 @@ void ghost() {
 			else {
 				TCHAR disk[MAX_PATH] = { 0 };
 				ComboBox_GetText(hWndComboBox, disk, MAX_PATH);
-				string target = to_string(TCHAR2STRING(disk).at(0));
-				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + TCHAR2STRING(dirs) + ",dst=" + target + " -sure";
+				string target = TCHAR2STRING(disk);
+				int pos = target.find('.');
+				// 截取从开始位置到 . 的前一个位置的子串
+				string sub = target.substr(0, pos);
+				// 将子串赋值给一个变量 string
+				string result = sub;
+				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + TCHAR2STRING(dirs) + ",dst=" + result + " -sure";
 				system(ghostexec.c_str());
 			}
 			::EnableWindow(ghostartbtn, true);
