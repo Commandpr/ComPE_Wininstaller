@@ -74,7 +74,7 @@ HFONT hFont2,hFont3;
 HWND block;
 HWND hTabCtrl;
 HWND btndisk;
-HWND barbg, barfw, protxt,protxt2;
+HWND barbg, barfw, protxt,protxt2,protxt3;
 HWND btnreboot;
 HWND btnxp;
 HWND btnwim;
@@ -260,7 +260,7 @@ bool improvePv()
 
 	return true;
 }
-
+atomic<bool> isloading(false);
 //关机
 bool powerOffProc()
 {
@@ -382,45 +382,80 @@ string exec(const char* cmd) {
 	// 返回结果字符串
 	return result;
 }
+string convertSecondsToTime(long long seconds) {
+	long long hours = seconds / 3600;
+	long long minutes = (seconds % 3600) / 60;
+	seconds = seconds % 60;
 
+	std::stringstream ss;
+	ss << std::setw(2) << std::setfill('0') << hours << ":"
+		<< std::setw(2) << std::setfill('0') << minutes << ":"
+		<< std::setw(2) << std::setfill('0') << seconds;
+
+	return ss.str();
+}
+atomic<long long>nowtime = 0;
+void CountSeconds() {
+	while (isloading) {
+		Sleep(1000);
+		nowtime += 1;
+	}
+}
 string loading = "正在创建文件结构...";
 enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, union wimlib_progress_info* info, void* progctx)
 {
 		switch (msg_type) {
 		case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_BEGIN:
-			MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+			MoveWindow(barfw, 0, 427, 0, 14, TRUE);
 			break;
 		case WIMLIB_PROGRESS_MSG_EXTRACT_FILE_STRUCTURE: {
+			if (info->extract.current_file_count == 0) {
+				nowtime = 0;
+			}
 			float f = (float)info->extract.current_file_count / (float)info->extract.end_file_count;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在创建文件...[" + to_string(f2) + "%]").c_str());
 			float tarloca = (float)info->extract.current_file_count / (float)info->extract.end_file_count * 640;
-			MoveWindow(barfw, 0, 425, tarloca, 15, TRUE);
+			long long end_time = ((float)info->extract.end_file_count - (float)info->extract.current_file_count) / ((float)info->extract.current_file_count / nowtime);
+			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime)+"   剩余时间："+convertSecondsToTime(end_time)).c_str());
+			MoveWindow(barfw, 0, 427, tarloca, 14, TRUE);
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_METADATA:
 		{
+			if (info->extract.current_file_count == 0) {
+				nowtime = 0;
+			}
 			float f = (float)info->extract.current_file_count / (float)info->extract.end_file_count;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在写入元数据...[" + to_string(f2) + "%]").c_str());
 			float tarloca = (float)info->extract.current_file_count / (float)info->extract.end_file_count * 640;
-			MoveWindow(barfw, 0, 425, tarloca, 15, TRUE);
+			long long end_time = ((float)info->extract.end_file_count - (float)info->extract.current_file_count) / ((float)info->extract.current_file_count / nowtime);
+			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime) + "   剩余时间：" + convertSecondsToTime(end_time)).c_str());
+			MoveWindow(barfw, 0, 427, tarloca, 14, TRUE);
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_STREAMS:
 		{
+			if (info->extract.completed_bytes == 0) {
+				nowtime = 0;
+			}
 			float f = (float)info->extract.completed_bytes / (float)info->extract.total_bytes;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在安装...[" + to_string(f2) + "%]").c_str());
 			float tarloca = (float)info->extract.completed_bytes / (float)info->extract.total_bytes * 640;
-			MoveWindow(barfw, 0, 425, tarloca, 15, TRUE);
+			long long end_time = ((float)info->extract.total_bytes - (float)info->extract.completed_bytes) / ((float)info->extract.completed_bytes / nowtime);
+			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime) + "   剩余时间：" + convertSecondsToTime(end_time)).c_str());
+			MoveWindow(barfw, 0, 427, tarloca, 14, TRUE);
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_END:
 			SetWindowText(protxt, NULL);
+			SetWindowTextA(protxt3, NULL);
 			MoveWindow(barfw, 0, 425, 0, 15, TRUE);
 			break;
 		case WIMLIB_PROGRESS_MSG_SCAN_BEGIN: {
+			nowtime = 0;
 			if (loading == "正在扫描文件...") {
 				loading = "正在扫描文件.";
 			}
@@ -434,28 +469,40 @@ enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, uni
 				loading = "正在扫描文件.";
 			}
 			SetWindowText(protxt, s2ws(loading).c_str());
+			SetWindowTextA(protxt3, NULL);
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_WRITE_STREAMS: {
+			if (info->write_streams.completed_bytes == 0) {
+				nowtime = 0;
+			}
 			float f = (float)info->write_streams.completed_bytes / (float)info->write_streams.total_bytes;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在备份...[" + to_string(f2) + "%]").c_str());
 			float tarloca = (float)info->write_streams.completed_bytes / (float)info->write_streams.total_bytes * 640;
-			MoveWindow(barfw, 0, 425, tarloca, 15, TRUE);
+			MoveWindow(barfw, 0, 427, tarloca, 14, TRUE);
+			long long end_time = ((float)info->write_streams.total_bytes - (float)info->write_streams.completed_bytes) / ((float)info->extract.completed_bytes / nowtime);
+
+			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime) + "   剩余时间：" + convertSecondsToTime(end_time)).c_str());
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_WRITE_METADATA_BEGIN: {
+			nowtime = 0;
 			loading = "正在写入元数据...";
+			long long end_time = ((float)info->extract.total_bytes - (float)info->extract.completed_bytes) / ((float)info->extract.completed_bytes / nowtime);
+			SetWindowTextA(protxt3, NULL);
 			SetWindowText(protxt, s2ws(loading).c_str());
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_WRITE_METADATA_END:
 			SetWindowText(protxt, NULL);
-			MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+			SetWindowTextA(protxt3, NULL);
+			MoveWindow(barfw, 0, 427, 0, 14, TRUE);
 			break;
 		default:
 		{
 			SetWindowText(protxt, L"正在进行操作...");
+			SetWindowTextA(protxt3, NULL);
 			break;
 		}
 		}
@@ -476,7 +523,7 @@ wstring unicode_to_wstring(unsigned int code) {
 	return result;
 }
 
-atomic<bool> isloading(false);
+
 void loading_anim() {
 	while (true) {
 		if (!isloading) {
@@ -535,7 +582,8 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 	sregex_iterator end;
 	bool havedn = false;
 	while (it != end) {
-		ComboBox_AddString(hWndComboBox4, s2ws(it->str(1)).c_str());
+		wstring temp = s2ws(it->str(1));
+		ComboBox_AddString(hWndComboBox4, temp.c_str());
 		havedn = true;
 		it++;
 	}
@@ -545,7 +593,8 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 		sregex_iterator it2(xml2.begin(), xml2.end(), r2);
 		sregex_iterator end2;
 		while (it2 != end2) {
-			ComboBox_AddString(hWndComboBox4, s2ws(it2->str(1)).c_str());
+			wstring temp = s2ws(it2->str(1));
+			ComboBox_AddString(hWndComboBox4, temp.c_str());
 			it2++;
 		}
 	}
@@ -1035,6 +1084,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls7.cbClsExtra = 0;//类的额外内存，默认为0即可
 	wndcls7.hCursor = LoadCursor(NULL, IDC_ARROW);//设置
 	wndcls7.cbWndExtra = 0;//窗口的额外内存，默认为0即可
+	
 	wndcls7.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), NULL);//设置窗体左上角的图标
 	wndcls7.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
 	wndcls7.hInstance = hInstance;//设置窗体所属的应用程序实例
@@ -1074,9 +1124,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL,
 		WS_VISIBLE | WS_CHILD,
 		0,
-		425,
+		428,
 		640,
-		15,
+		14,
 		hwnd,
 		NULL,
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -1086,8 +1136,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL,
 		WS_VISIBLE | WS_CHILD,
 		0,
-		400,
-		200,
+		395,
+		170,
 		15,
 		hwnd,
 		NULL,
@@ -1098,9 +1148,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL,
 		WS_VISIBLE | WS_CHILD,
 		200,
-		400,
-		200,
+		395,
 		17,
+		17,
+		hwnd,
+		NULL,
+		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	protxt3 = CreateWindow(
+		L"STATIC",
+		NULL,
+		WS_VISIBLE | WS_CHILD,
+		0,
+		412,
+		320,
+		15,
 		hwnd,
 		NULL,
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -1110,9 +1172,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL,
 		WS_VISIBLE | WS_CHILD,
 		0,
-		425,
+		428,
 		0,
-		15,
+		14,
 		hwnd,
 		NULL,
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -1225,6 +1287,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	SendMessage(btndisk, WM_SETFONT, (WPARAM)hFont, 1);
 	SendMessage(protxt, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(protxt2, WM_SETFONT, (WPARAM)hFont3, 1);
+	SendMessage(protxt3, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btnghost, WM_SETFONT, (WPARAM)hFont, 1);
 	SendMessage(btnwim, WM_SETFONT, (WPARAM)hFont, 1);
 	SendMessage(btnxp, WM_SETFONT, (WPARAM)hFont, 1);
@@ -1708,6 +1771,9 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 void writewim() {
 	isloading = true;
+	nowtime = 0;
+	thread t(CountSeconds);
+	t.detach();
 	TCHAR dirs[MAX_PATH] = { 0 };
 	Edit_GetText(edit2, dirs, MAX_PATH);
 	string dirstr = ws2s(dirs).c_str();
@@ -1944,7 +2010,7 @@ void CopyXPFile() {
 			a++;
 			CopyFile(s2ws(dirstr + "\\" + file).c_str(), s2ws(path + "\\" + file).c_str(), FALSE);
 			SetWindowText(protxt, s2ws("复制启动文件文件：" + file).c_str());
-			MoveWindow(barfw, 0, 425, (float)a * (640 / 114), 15, TRUE);
+			MoveWindow(barfw, 0, 427, (float)a * (640 / 114), 14, TRUE);
 		}
 		catch (exception) {
 			isloading = false;
