@@ -22,6 +22,7 @@
 #include "wimlib.h"
 //#include "dismapi.h"
 //#include "json/json.h"
+#include "tinyxml.h"
 #include "resource.h"
 #pragma comment(lib,"libwim.lib")
 //#pragma comment(lib,"dismapi.lib")
@@ -81,17 +82,15 @@ HWND btnwim;
 HWND btnghost, ghostartbtn, btwimstart, btxpstart;
 HWND win1, win2, win3, win4, win5;
 HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5;
-HWND key, username, password, soobe, selectmodexml, sexec, oexec,selectmodec,selfxml,btxmlload;
 HWND hsavediskcb,hsavepathedit,hcompcbox;
 HWND selectmodedisk, selectmodepar;
-HWND hiso, hwlst, hok;
 HWND kyes, kno;
 LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK TWnSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 using namespace std;
 string MountedDisk = "";
@@ -354,7 +353,7 @@ void AddDiskList(HWND cb) {
 	{
 		// 调用GetDriveTypeW函数，获取当前磁盘盘符的类型
 		UINT type = GetDriveTypeW((LPWSTR)drives + i);
-		if (type == DRIVE_FIXED || type == DRIVE_REMOVABLE)
+		if (type != DRIVE_CDROM)
 		{
 			ComboBox_AddString(cb, drives + i);
 		}
@@ -614,11 +613,37 @@ vector<string> findFilesWithExtensions(const string& directoryPath, const vector
 	}
 	return foundFiles;
 }
-atomic<bool> waitingiso(false);
+/*
+string MountEFI;
+void MountEFIPartition() {
+	char chPath = 'A';
+	string MDisk = "";
+	for (int i = 0; i < 26; ++i)
+	{
+		string strPath(1, chPath);
+		strPath += ":";
+		if (_access(strPath.c_str(), 0) != 0)
+		{
+			MDisk = strPath;
+		}
+		++chPath;
+	}
+	if (MDisk == "") {
+		MessageBox(hWnd, L"没有可用盘符，无法挂载EFI分区。若需要，请自行为EFI分区分配盘符", NULL, MB_ICONERROR);
+		return;
+	}
+	MountEFI = MDisk;
+	string mountcmd = "mountvol " + MDisk + " /s";
+	system(mountcmd.c_str());
+}
+*/
+
 string isopath;
 int imgtype;
+vector<string> imglist;
 void mountwimiso() {
-	SendMessage(hwlst, CB_RESETCONTENT, 0, 0);
+	//SendMessage(hwlst, CB_RESETCONTENT, 0, 0);
+	
 	EnableWindow(win2, false);
 	EnableWindow(btndisk,false);
 	EnableWindow(btnghost, false);
@@ -741,35 +766,206 @@ void mountwimiso() {
 		}
 		return;
 	}
-	for (string file : foundFiles) {
-		ComboBox_AddString(hwlst, s2ws(file).c_str());
-	}
-	SendMessage(hwlst, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
-	ShowWindow(hiso, SW_SHOW);
-	waitingiso = true;
-	while (waitingiso) {}
-	TCHAR wimfile[MAX_PATH] = { 0 };
-	ComboBox_GetText(hwlst, wimfile, MAX_PATH);
-	string wimuse = ws2s(wimfile);
-	isloading = false;
-	EnableWindow(win2, true);
-	EnableWindow(btndisk, true);
-	EnableWindow(btnghost, true);
-	EnableWindow(btnxp, true);
-	EnableWindow(btnreboot, true);
-	SetWindowText(protxt, NULL);
-	switch (imgtype) {
-	case 0: {
-		Edit_SetText(edit2, s2ws(wimuse).c_str());
-		wstring filefrom = s2ws(wimuse);
-		GetWimSysInfo(filefrom.c_str());
-		break;
-	}
-	case 1:
-		Edit_SetText(edit, s2ws(foundFiles.at(0)).c_str());
-		break;
-	}
+	imglist = foundFiles;
+	//SendMessage(hwlst, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+	DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG1), hWnd, ISOSunProc);
+	
 }
+void CreateUnattendXML(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand) {
+	TiXmlDocument* tinyXmlDoc = new TiXmlDocument();
+	TiXmlDeclaration* tinyXmlDeclare = new TiXmlDeclaration("1.0", "utf-8", "");
+	tinyXmlDoc->LinkEndChild(tinyXmlDeclare);
+	TiXmlElement* Unattend = new TiXmlElement("Unattend");
+	Unattend->SetAttribute("xmlns", "urn:schemas-microsoft-com:unattend");
+	Unattend->SetAttribute("xmlns:wcm", "http://schemas.microsoft.com/WMIConfig/2002/State");
+	tinyXmlDoc->LinkEndChild(Unattend);
+	TiXmlElement* SettingoS = new TiXmlElement("Setting");
+	SettingoS->SetAttribute("pass", "offlineServicing");
+	Unattend->LinkEndChild(SettingoS);
+	TiXmlElement* SettingPE = new TiXmlElement("Setting");
+	SettingPE->SetAttribute("pass", "windowsPE");
+	TiXmlElement* componentMWICW = new TiXmlElement("component");
+	componentMWICW->SetAttribute("name", "Microsoft-Windows-International-Core-WinPE");
+	componentMWICW->SetAttribute("processorArchitecture", "amd64");
+	componentMWICW->SetAttribute("publicKeyToken", "31bf3856ad364e35");
+	componentMWICW->SetAttribute("language", "neutral");
+	componentMWICW->SetAttribute("versionScope", "nonSxS");
+	TiXmlElement* setupUILanguage = new TiXmlElement("SetupUILanguage");
+	componentMWICW->LinkEndChild(setupUILanguage);
+	TiXmlElement* uiLanguage = new TiXmlElement("UILanguage");
+	uiLanguage->LinkEndChild(new TiXmlText("zh-Hans-CN"));
+	setupUILanguage->LinkEndChild(uiLanguage);
+	TiXmlElement* inputLocale = new TiXmlElement("InputLocale");
+	inputLocale->LinkEndChild(new TiXmlText("0804:00000804"));
+	componentMWICW->LinkEndChild(inputLocale);
+	TiXmlElement* systemLocale = new TiXmlElement("SystemLocale");
+	systemLocale->LinkEndChild(new TiXmlText("zh-CN"));
+	componentMWICW->LinkEndChild(systemLocale);
+	TiXmlElement* uiLanguage_winPE = new TiXmlElement("UILanguage");
+	uiLanguage_winPE->LinkEndChild(new TiXmlText("zh-Hans-CN"));
+	componentMWICW->LinkEndChild(uiLanguage_winPE);
+	TiXmlElement* userLocale = new TiXmlElement("UserLocale");
+	userLocale->LinkEndChild(new TiXmlText("zh-CN"));
+	componentMWICW->LinkEndChild(userLocale);
+	SettingPE->LinkEndChild(componentMWICW);
+	TiXmlElement* componentMWS = new TiXmlElement("component");
+	componentMWS->SetAttribute("name", "Microsoft-Windows-Setup");
+	componentMWS->SetAttribute("processorArchitecture", "amd64");
+	componentMWS->SetAttribute("publicKeyToken", "31bf3856ad364e35");
+	componentMWS->SetAttribute("language", "neutral");
+	componentMWS->SetAttribute("versionScope", "nonSxS");
+	TiXmlElement* userData = new TiXmlElement("UserData");
+	TiXmlElement* productKey = new TiXmlElement("ProductKey");
+	TiXmlElement* key = new TiXmlElement("Key");
+	key->LinkEndChild(new TiXmlText(RegisterKey.c_str()));
+	productKey->LinkEndChild(key);
+	userData->LinkEndChild(productKey);
+	TiXmlElement* acceptEula = new TiXmlElement("AcceptEula");
+	acceptEula->LinkEndChild(new TiXmlText("true"));
+	userData->LinkEndChild(acceptEula);
+	componentMWS->LinkEndChild(userData);
+	SettingPE->LinkEndChild(componentMWS);
+	Unattend->LinkEndChild(SettingPE);
+	TiXmlElement* Settingge = new TiXmlElement("Setting");
+	Settingge->SetAttribute("pass", "generalize");
+	Unattend->LinkEndChild(Settingge);
+	TiXmlElement* settingssp = new TiXmlElement("settings");
+	settingssp->SetAttribute("pass", "specialize");
+	Unattend->LinkEndChild(settingssp);
+	TiXmlElement* componentMWD = new TiXmlElement("component");
+	componentMWD->SetAttribute("name", "Microsoft-Windows-Deployment");
+	componentMWD->SetAttribute("processorArchitecture", "amd64");
+	componentMWD->SetAttribute("publicKeyToken", "31bf3856ad364e35");
+	componentMWD->SetAttribute("language", "neutral");
+	componentMWD->SetAttribute("versionScope", "nonSxS");
+	settingssp->LinkEndChild(componentMWD);
+	TiXmlElement* runSync = new TiXmlElement("RunSynchronous");
+	componentMWD->LinkEndChild(runSync);
+	TiXmlElement* runSyncCommand = new TiXmlElement("RunSynchronousCommand");
+	runSyncCommand->SetAttribute("wcm:action", "add");
+	runSync->LinkEndChild(runSyncCommand);
+	TiXmlElement* order = new TiXmlElement("Order");
+	TiXmlText* orderText = new TiXmlText("1");
+	order->LinkEndChild(orderText);
+	runSyncCommand->LinkEndChild(order);
+	TiXmlElement* path = new TiXmlElement("Path");
+	TiXmlText* pathText = new TiXmlText(SysprepCommand.c_str());
+	path->LinkEndChild(pathText);
+	runSyncCommand->LinkEndChild(path);
+	TiXmlElement* Settingas = new TiXmlElement("Setting");
+	Settingas->SetAttribute("pass", "auditSystem");
+	Unattend->LinkEndChild(Settingas);
+	TiXmlElement* Settingau = new TiXmlElement("Setting");
+	Settingau->SetAttribute("pass", "auditUser");
+	Unattend->LinkEndChild(Settingau);
+	TiXmlElement* settings = new TiXmlElement("settings");
+	settings->SetAttribute("pass", "oobeSystem");
+	Unattend->LinkEndChild(settings);
+	TiXmlElement* componentIntl = new TiXmlElement("component");
+	componentIntl->SetAttribute("name", "Microsoft-Windows-International-Core");
+	componentIntl->SetAttribute("processorArchitecture", "amd64");
+	componentIntl->SetAttribute("publicKeyToken", "31bf3856ad364e35");
+	componentIntl->SetAttribute("language", "neutral");
+	componentIntl->SetAttribute("versionScope", "nonSxS");
+	settings->LinkEndChild(componentIntl);
+	TiXmlElement* inputLocale2 = new TiXmlElement("InputLocale");
+	TiXmlText* inputLocaleText2 = new TiXmlText("0804:00000804");
+	inputLocale2->LinkEndChild(inputLocaleText2);
+	componentIntl->LinkEndChild(inputLocale2);
+	TiXmlElement* systemLocale2 = new TiXmlElement("SystemLocale");
+	TiXmlText* systemLocaleText2 = new TiXmlText("zh-CN");
+	systemLocale2->LinkEndChild(systemLocaleText2);
+	componentIntl->LinkEndChild(systemLocale2);
+	TiXmlElement* uiLanguage2 = new TiXmlElement("UILanguage");
+	TiXmlText* uiLanguageText2 = new TiXmlText("zh-Hans-CN");
+	uiLanguage2->LinkEndChild(uiLanguageText2);
+	componentIntl->LinkEndChild(uiLanguage2);
+	TiXmlElement* userLocale2 = new TiXmlElement("UserLocale");
+	TiXmlText* userLocaleText2 = new TiXmlText("zh-CN");
+	userLocale2->LinkEndChild(userLocaleText2);
+	componentIntl->LinkEndChild(userLocale2);
+	TiXmlElement* componentShell = new TiXmlElement("component");
+	componentShell->SetAttribute("name", "Microsoft-Windows-Shell-Setup");
+	componentShell->SetAttribute("processorArchitecture", "amd64");
+	componentShell->SetAttribute("publicKeyToken", "31bf3856ad364e35");
+	componentShell->SetAttribute("language", "neutral");
+	componentShell->SetAttribute("versionScope", "nonSxS");
+	settings->LinkEndChild(componentShell);
+	TiXmlElement* userAccounts = new TiXmlElement("UserAccounts");
+	componentShell->LinkEndChild(userAccounts);
+	TiXmlElement* localAccounts = new TiXmlElement("LocalAccounts");
+	userAccounts->LinkEndChild(localAccounts);
+	TiXmlElement* localAccount = new TiXmlElement("LocalAccount");
+	localAccount->SetAttribute("wcm:action", "add");
+	localAccounts->LinkEndChild(localAccount);
+	TiXmlElement* name = new TiXmlElement("Name");
+	TiXmlText* nameText = new TiXmlText("Admin");
+	name->LinkEndChild(nameText);
+	localAccount->LinkEndChild(name);
+	TiXmlElement* group = new TiXmlElement("Group");
+	TiXmlText* groupText = new TiXmlText("Administrators");
+	group->LinkEndChild(groupText);
+	localAccount->LinkEndChild(group);
+	TiXmlElement* password = new TiXmlElement("Password");
+	localAccount->LinkEndChild(password);
+	TiXmlElement* value = new TiXmlElement("Value");
+	TiXmlText* valueText = new TiXmlText("");
+	value->LinkEndChild(valueText);
+	password->LinkEndChild(value);
+	TiXmlElement* plainText = new TiXmlElement("PlainText");
+	TiXmlText* plainTextText = new TiXmlText("true");
+	plainText->LinkEndChild(plainTextText);
+	password->LinkEndChild(plainText);
+	TiXmlElement* autoLogon = new TiXmlElement("AutoLogon");
+	componentShell->LinkEndChild(autoLogon);
+	TiXmlElement* username = new TiXmlElement("Username");
+	TiXmlText* usernameText = new TiXmlText(Username.c_str());
+	username->LinkEndChild(usernameText);
+	autoLogon->LinkEndChild(username);
+	TiXmlElement* enabled = new TiXmlElement("Enabled");
+	TiXmlText* enabledText = new TiXmlText("true");
+	enabled->LinkEndChild(enabledText);
+	autoLogon->LinkEndChild(enabled);
+	TiXmlElement* logonCount = new TiXmlElement("LogonCount");
+	TiXmlText* logonCountText = new TiXmlText("1");
+	logonCount->LinkEndChild(logonCountText);
+	autoLogon->LinkEndChild(logonCount);
+	TiXmlElement* autoLogonPassword = new TiXmlElement("Password");
+	autoLogon->LinkEndChild(autoLogonPassword);
+	TiXmlElement* autoLogonValue = new TiXmlElement("Value");
+	TiXmlText* autoLogonValueText = new TiXmlText(Password.c_str());
+	autoLogonValue->LinkEndChild(autoLogonValueText);
+	autoLogonPassword->LinkEndChild(autoLogonValue);
+	TiXmlElement* autoLogonPlainText = new TiXmlElement("PlainText");
+	TiXmlText* autoLogonPlainTextText = new TiXmlText("true");
+	autoLogonPlainText->LinkEndChild(autoLogonPlainTextText);
+	autoLogonPassword->LinkEndChild(autoLogonPlainText);
+	TiXmlElement* oobe = new TiXmlElement("OOBE");
+	componentShell->LinkEndChild(oobe);
+	TiXmlElement* protectYourPC = new TiXmlElement("ProtectYourPC");
+	TiXmlText* protectYourPCText = new TiXmlText("3");
+	protectYourPC->LinkEndChild(protectYourPCText);
+	oobe->LinkEndChild(protectYourPC);
+	TiXmlElement* hideEULAPage = new TiXmlElement("HideEULAPage");
+	TiXmlText* hideEULAPageText = new TiXmlText("false");
+	hideEULAPage->LinkEndChild(hideEULAPageText);
+	oobe->LinkEndChild(hideEULAPage);
+	TiXmlElement* firstLogonCommands = new TiXmlElement("FirstLogonCommands");
+	componentShell->LinkEndChild(firstLogonCommands);
+	TiXmlElement* synchronousCommand = new TiXmlElement("SynchronousCommand");
+	synchronousCommand->SetAttribute("wcm:action", "add");
+	firstLogonCommands->LinkEndChild(synchronousCommand);
+	TiXmlElement* order2 = new TiXmlElement("Order");
+	TiXmlText* orderText2 = new TiXmlText("1");
+	order2->LinkEndChild(orderText2);
+	synchronousCommand->LinkEndChild(order2);
+	TiXmlElement* commandLine = new TiXmlElement("CommandLine");
+	TiXmlText* commandLineText = new TiXmlText(FirstLogonCommand.c_str());
+	commandLine->LinkEndChild(commandLineText);
+	synchronousCommand->LinkEndChild(commandLine);
+	tinyXmlDoc->SaveFile(".\\Unattend.xml");
+}
+/*
 // Helper function to check for registry key existence
 bool IsRegistryKeyPresent(HKEY hKey, LPCSTR subKey) {
 	HKEY hResult;
@@ -797,7 +993,7 @@ bool IsRegistryKeyValuePresent(HKEY hKey, LPCSTR subKey, LPCSTR valueName) {
 	}
 	return false;
 }
-/*
+
 bool inPE() {
 	bool isWinPE = false;
 
@@ -1002,12 +1198,13 @@ void GetConfigJson() {
 */
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
-	int a = AddFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
-	SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
-	a = AddFontResource(L".\\Fonts\\segoe_slboot.ttf");
-	SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
 	AllocConsole();    //为调用进程分配一个新的控制台
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
+	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
+	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
+	//SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+	AddFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
+	AddFontResource(L".\\Fonts\\segoe_slboot.ttf");
 	WNDCLASS wndcls; //创建一个窗体类
 	wndcls.cbClsExtra = 0;//类的额外内存，默认为0即可
 	wndcls.cbWndExtra = 0;//窗口的额外内存，默认为0即可
@@ -1055,36 +1252,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls4.lpszClassName = L"INWIN3";//设置窗体的类名
 	wndcls4.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls4.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
-	RegisterClass(&wndcls4);//向操作系统注册窗体
-	WNDCLASS wndcls5; //创建一个窗体类
-	wndcls5.cbClsExtra = 0;//类的额外内存，默认为0即可
-	wndcls5.cbWndExtra = 0;//窗口的额外内存，默认为0即可
-	wndcls5.hbrBackground = CreateSolidBrush(RGB(240, 240, 240));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
-	wndcls5.hCursor = LoadCursor(NULL, IDC_ARROW);//设置光标
-	wndcls5.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON1));//设置窗体左上角的图标
-	wndcls5.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls5.lpfnWndProc = TWnSunProc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
-	wndcls5.lpszClassName = L"ComPEToolClass";//设置窗体的类名
-	wndcls5.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
-	wndcls5.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
-	RegisterClass(&wndcls5);//向操作系统注册窗体
-	WNDCLASS wndcls6; //创建一个窗体类
-	wndcls6.cbClsExtra = 0;//类的额外内存，默认为0即可
-	wndcls6.cbWndExtra = 0;//窗口的额外内存，默认为0即可
-	wndcls6.hbrBackground = CreateSolidBrush(RGB(240, 240, 240));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
-	wndcls6.hCursor = LoadCursor(NULL, IDC_ARROW);//设置光标
-	wndcls6.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON1));//设置窗体左上角的图标
-	wndcls6.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls6.lpfnWndProc = ISOSunProc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
-	wndcls6.lpszClassName = L"ComPEISOClass";//设置窗体的类名
-	wndcls6.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
-	wndcls6.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
-	RegisterClass(&wndcls6);//向操作系统注册窗体
 	WNDCLASS wndcls7; //创建一个窗体类
 	wndcls7.cbClsExtra = 0;//类的额外内存，默认为0即可
 	wndcls7.hCursor = LoadCursor(NULL, IDC_ARROW);//设置
 	wndcls7.cbWndExtra = 0;//窗口的额外内存，默认为0即可
-	
 	wndcls7.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), NULL);//设置窗体左上角的图标
 	wndcls7.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
 	wndcls7.hInstance = hInstance;//设置窗体所属的应用程序实例
@@ -1098,15 +1269,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		WS_OVERLAPPEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME, createx,
 		createy, 640, 480,
 		NULL, NULL, hInstance, NULL);
-	hkey = CreateWindow(L"ComPEToolClass", L"无人值守配置工具",
-		WS_OVERLAPPEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME, createx2,
-		createy2, 480, 320,
-		NULL, NULL, hInstance, NULL);
-	hiso = CreateWindow(L"ComPEISOClass", L"映像选择",
-		WS_OVERLAPPEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME, createx3,
-		createy3, 360, 180,
-		NULL, NULL, hInstance, NULL);
+	//SendMessage(hiso, WM_FONTCHANGE, 0, 0);
 	hWnd = hwnd;
+	SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
 	btnghost = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
 		L"Ghost还原",      // Button text 
@@ -1524,6 +1689,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 	else {
 		fm = GetFirmware();
+		//MountEFIPartition();
 	}
 	thread t(loading_anim);
 	t.detach();
@@ -1542,84 +1708,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		280, 169, 64, 22, win3, (HMENU)txtloadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(btfile4, WM_SETFONT, (WPARAM)hFont2, 1);
-	key = CreateWindow(L"EDIT",NULL,WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		120, 117, 304, 21, hkey, (HMENU)1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	SendMessage(key, WM_SETFONT, (WPARAM)hFont2, 1);
-	username = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		120, 78, 130, 21, hkey, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	SendMessage(username, WM_SETFONT, (WPARAM)hFont2, 1);
-	password = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		293, 78, 130, 21, hkey, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	SendMessage(password, WM_SETFONT, (WPARAM)hFont2, 1);
-	selfxml = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		149, 16, 227, 21, hkey, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	SendMessage(selfxml, WM_SETFONT, (WPARAM)hFont2, 1);
-	sexec = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		120, 152, 304, 21, hkey, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	SendMessage(sexec, WM_SETFONT, (WPARAM)hFont2, 1);
-	oexec = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
-		120, 187, 304, 21, hkey, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	SendMessage(oexec, WM_SETFONT, (WPARAM)hFont2, 1);
-	btxmlload = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		382, 16, 75, 23, hkey, (HMENU)xmlloadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	SendMessage(btxmlload, WM_SETFONT, (WPARAM)hFont2, 1);
-	kyes = CreateWindow(L"BUTTON", L"确定", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		296, 246, 75, 23, hkey, (HMENU)btyes, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	SendMessage(kyes, WM_SETFONT, (WPARAM)hFont2, 1);
-	kno = CreateWindow(L"BUTTON", L"取消", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		377, 246, 75, 23, hkey, (HMENU)btno, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	SendMessage(kno, WM_SETFONT, (WPARAM)hFont2, 1);
-	selectmodexml = CreateWindowEx(WS_EX_WINDOWEDGE,
-		L"BUTTON",
-		L"使用自己的应答文件",
-		WS_VISIBLE | WS_CHILD | BS_RADIOBUTTON,  // <---- WS_GROUP group the following radio buttons 1st,2nd button
-		12, 18,
-		131, 16,
-		hkey, //<----- Use main window handle
-		(HMENU)uxml,
-		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	soobe= CreateWindowEx(WS_EX_WINDOWEDGE,
-		L"BUTTON",
-		L"跳过OOBE阶段",
-		WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,  // <---- WS_GROUP group the following radio buttons 1st,2nd button
-		12, 253,
-		96, 16,
-		hkey, //<----- Use main window handle
-		NULL,
-		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	selectmodec = CreateWindow(
-		L"BUTTON",
-		L"自定义无人值守（所有选项均为选填）",
-		WS_VISIBLE | WS_CHILD | BS_RADIOBUTTON,  // Styles
-		12, 47,
-		230, 16,
-		hkey,
-		(HMENU)cxml,
-		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
-	hwlst = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
-		12, 55, 320, 20, hiso, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	hok = CreateWindow(L"BUTTON", L"确定", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		257, 106, 75, 23, hiso, (HMENU)btyes, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
-		NULL);
-	SendMessage(selectmodexml, WM_SETFONT, (WPARAM)hFont2, 1);
-	SendMessage(selectmodec, WM_SETFONT, (WPARAM)hFont2, 1);
-	SendMessage(hwlst, WM_SETFONT, (WPARAM)hFont2, 1);
-	SendMessage(hok, WM_SETFONT, (WPARAM)hFont2, 1);
-	SendMessage(soobe, WM_SETFONT, (WPARAM)hFont2, 1);
-	SendMessage(selectmodexml, BM_SETCHECK, 1, 0);
-	EnableWindow(key, false);
-	EnableWindow(soobe, false);
-	EnableWindow(username, false);
-	EnableWindow(password, false);
-	EnableWindow(sexec, false);
-	EnableWindow(oexec, false);
-	EnableWindow(selfxml, true);
-	EnableWindow(btxmlload, true);
+	//hwlst = CreateWindow(WC_COMBOBOX, TEXT(""),
+	//	CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+	//	12, 55, 320, 20, hiso, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+	//	NULL);
+	//hok = CreateWindow(L"BUTTON", L"确定", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+	//	257, 106, 75, 23, hiso, (HMENU)btyes, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+	//	NULL);
 	AddDiskList(hWndComboBox);
 	AddDiskList(hWndComboBox2);
 	AddDiskList(hWndComboBox3);
@@ -1920,8 +2015,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case xmloadbt:
 		{
-			ShowWindow(hkey, SW_SHOW);
-			EnableWindow(hWnd, false);
+			DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG2), hWnd, TWNSunProc);
 			break;
 		}
 		case fmt1: {
@@ -2248,7 +2342,86 @@ void Bak()
 	EnableWindow(btnreboot, true);
 	return;
 }
-
+LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	switch (uMsg)//通过判断消息进行消息响应
+	{
+	case WM_INITDIALOG:
+		EnableWindow(GetDlgItem(hwnd, IDC_EDIT2), FALSE);
+		EnableWindow(GetDlgItem(hwnd, IDC_EDIT3), FALSE);
+		EnableWindow(GetDlgItem(hwnd, IDC_EDIT4), FALSE);
+		EnableWindow(GetDlgItem(hwnd, IDC_EDIT5), FALSE);
+		EnableWindow(GetDlgItem(hwnd, IDC_EDIT6), FALSE);
+		Button_SetCheck(GetDlgItem(hwnd,IDC_RADIO1),TRUE);
+		return TRUE;
+	case WM_COMMAND: {
+		switch (LOWORD(wParam))
+		{
+		case IDC_RADIO1:
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT2), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT3), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT4), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT5), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT6), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT1), TRUE);
+			EnableWindow(GetDlgItem(hwnd, IDC_BUTTON1), TRUE);
+			return TRUE;
+		case IDC_RADIO2:
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT2), TRUE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT3), TRUE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT4), TRUE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT5), TRUE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT6), TRUE);
+			EnableWindow(GetDlgItem(hwnd, IDC_EDIT1), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_BUTTON1), FALSE);
+			return TRUE;
+		case IDCANCEL:
+			EndDialog(hwnd, 0);
+			return TRUE;
+		case IDOK:
+		{
+			if (Button_GetCheck(GetDlgItem(hwnd, IDC_RADIO2))) {
+				TCHAR Username[MAX_PATH] = { 0 };
+				TCHAR Password[MAX_PATH] = { 0 };
+				TCHAR ActiveKey[MAX_PATH] = { 0 };
+				TCHAR FstRun[MAX_PATH] = { 0 };
+				TCHAR PreRun[MAX_PATH] = { 0 };
+				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT2), Username, MAX_PATH);
+				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT3), Password, MAX_PATH);
+				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT4), ActiveKey, MAX_PATH);
+				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT6), FstRun, MAX_PATH);
+				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT5), PreRun, MAX_PATH);
+				wstring un = Username;
+				wstring pw = Password;
+				wstring ak = ActiveKey;
+				wstring fr = FstRun;
+				wstring pr = PreRun;
+				CreateUnattendXML(ws2s(un), ws2s(pw), ws2s(ak), ws2s(pr), ws2s(fr));
+				TCHAR rundir[MAX_PATH] = { 0 };
+				GetCurrentDirectory(MAX_PATH, rundir);
+				string rd = ws2s(rundir);
+				wstring xml_path = s2ws(rd + "\\Unattend.xml");
+				Edit_SetText(edit3, xml_path.c_str());
+				EndDialog(hwnd, 0);
+				return TRUE;
+			}
+			TCHAR xml_path[MAX_PATH] = { 0 };
+			GetDlgItemTextW(hwnd, IDC_EDIT1, xml_path, MAX_PATH);
+			Edit_SetText(edit3, xml_path);
+			EndDialog(hwnd, 0);
+			return TRUE;
+		}
+		case IDC_BUTTON1:
+			Edit_SetText(GetDlgItem(hwnd, IDC_EDIT1), GetGhoFile(L"应答文件(*.xml)\0*.xml\0\0", hwnd));
+			return TRUE;
+		}
+		return TRUE;
+	}
+	case WM_CLOSE:
+		EndDialog(hwnd, 0);
+		return TRUE;
+	}
+	return FALSE;
+}
 LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) //该子窗口消息不会被处理，测试阶段
 {
 	switch (uMsg)//通过判断消息进行消息响应
@@ -2443,17 +2616,22 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_CLOSE:
 		if (MessageBox(hwnd, L"确定要关闭程序吗？执行操作期间关闭可能导致设备损坏，确保所有操作结束后，选择“是”关闭程序。", L"提示：", MB_ICONQUESTION | MB_YESNO) == IDYES) {
-			
-			DestroyWindow(hwnd);//销毁窗口并发送WM_DESTROY消息，但是程序没有退出
+			DestroyWindow(hwnd);
+			DestroyWindow(GetConsoleWindow());
 		}
 		break;
 	case WM_DESTROY:
 	{
+		
+		//string unmountcmd = "mountvol "+MountEFI+" /d";
+		//system(unmountcmd.c_str());
 		string unmountcmd = ".\\OSFMount.com -D -m " + MountedDisk;
 		system(unmountcmd.c_str());
 		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
-		SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+		SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
+		SendMessage(hkey, WM_FONTCHANGE, 0, 0);
+		//SendMessage(hiso, WM_FONTCHANGE, 0, 0);
 		PostQuitMessage(0);//发出WM_QUIT消息，结束消息循环
 		break;
 	}
@@ -2473,270 +2651,68 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-LRESULT CALLBACK TWnSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	switch (uMsg)//通过判断消息进行消息响应
-	{
-	case WM_PAINT: // 绘制消息
-	{
-		TCHAR wkey[] = L"激活密钥：";
-		TCHAR uname[] = L"用户名：";
-		TCHAR passwd[] = L"密码：";
-		TCHAR sexe[] = L"部署阶段运行：";
-		TCHAR oexe[] = L"首次登录运行：";
-		TCHAR warning[] = L"激活密钥请在Microsoft官网购买后使用，本界面不提供盗版激活服务";
-		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
-		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, RGB(0, 0, 64));
-		SelectObject(hdc, hFont2);
-		TextOut(hdc, 60, 120, wkey, _tcslen(wkey));
-		TextOut(hdc, 70,81, uname, _tcslen(uname));
-		TextOut(hdc, 256,81, passwd, _tcslen(passwd));
-		TextOut(hdc, 35, 155, sexe, _tcslen(sexe));
-		TextOut(hdc, 35, 190, oexe, _tcslen(oexe));
-		TextOut(hdc, 47, 222, warning, _tcslen(warning));
-		EndPaint(hwnd, &ps);
-		break;
-	}
-	case WM_COMMAND:{
-		switch (LOWORD(wParam)) {
-		case uxml:
-			SendMessage(selectmodexml, BM_SETCHECK, 1, 0);
-			SendMessage(selectmodec, BM_SETCHECK, 0, 0);
-			EnableWindow(key, false);
-			EnableWindow(soobe, false);
-			EnableWindow(username, false);
-			EnableWindow(password, false);
-			EnableWindow(sexec, false);
-			EnableWindow(oexec, false);
-			EnableWindow(selfxml, true);
-			EnableWindow(btxmlload, true);
-			break;
-		case cxml:
-			SendMessage(selectmodexml, BM_SETCHECK, 0, 0);
-			SendMessage(selectmodec, BM_SETCHECK, 1, 0);
-			EnableWindow(key, true);
-			EnableWindow(soobe, true);
-			EnableWindow(username, true);
-			EnableWindow(password, true);
-			EnableWindow(sexec, true);
-			EnableWindow(oexec, true);
-			EnableWindow(selfxml, false);
-			EnableWindow(btxmlload, false);
-			break;
-		case xmlloadbt:
-			Edit_SetText(selfxml, GetGhoFile(L"应答文件(*.xml)\0*.xml\0\0",hwnd));
-			break;
-		case btno:
-			EnableWindow(hWnd, true);
-			ShowWindow(hkey, SW_HIDE);
-			break;
-		case btyes:
-			if (SendMessage(selectmodexml,BM_GETCHECK,0,0) == BST_CHECKED) {
-				TCHAR xmldir[MAX_PATH] = { 0 };
-				Edit_GetText(selfxml, xmldir, MAX_PATH);
-				Edit_SetText(edit3, xmldir);
-			}
-			else {
-				string xmldata1 = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
-					<unattend xmlns=\"urn:schemas-microsoft-com:unattend\">\n\
-					<settings pass=\"windowsPE\">\n\
-					<component name=\"Microsoft-Windows-International-Core-WinPE\" processorArchitecture=\"amd64\" publicKeyToken=\"31bf3856ad364e35\" language=\"neutral\" versionScope=\"nonSxS\" xmlns:wcm=\"http://schemas.microsoft.com/WMIConfig/2002/State\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n\
-					<SetupUILanguage>\n\
-					<UILanguage>zh-CN</UILanguage>\n\
-					</SetupUILanguage>\n\
-					<InputLocale>zh-CN</InputLocale>\n\
-					<SystemLocale>zh-CN</SystemLocale>\n\
-					<UILanguage>zh-CN</UILanguage>\n\
-					<UILanguageFallback>zh-CN</UILanguageFallback>\n\
-					<UserLocale>zh-CN</UserLocale>\n\
-					</component>\n\
-					</settings>\n";
-				string prokeydata = "";
-				string usernamestr="";
-				string usernamestr2= "";
-				string skipoobestr = "";
-				string sysprepexe = "</unattend>";
-				string firstlogonexe = "</component>\n\
-						</settings>\n";
-				if (Edit_GetTextLength(key) >= 29) {
-					TCHAR productkey[30] = { 0 };
-					Edit_GetText(key, productkey, 30);
-					string pk = ws2s(productkey).c_str();
-					prokeydata = "<settings pass=\"specialize\">\n\
-					<component name=\"Microsoft-Windows-Shell-Setup\" processorArchitecture=\"amd64\" publicKeyToken=\"31bf3856ad364e35\" language=\"neutral\" versionScope=\"nonSxS\" xmlns:wcm=\"http://schemas.microsoft.com/WMIConfig/2002/State\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n\
-					<ProductKey>" + pk + "</ProductKey>\n\
-					</component>\n\
-					</settings>\n";
-				}
-				if (Edit_GetTextLength(username) > 0) {
-					TCHAR uname[20] = { 0 };
-					Edit_GetText(username, uname, 20);
-					TCHAR pswd[256] = { 0 };
-					Edit_GetText(password, pswd, 256);
-					string un = ws2s(uname).c_str();
-					string pw = ws2s(pswd).c_str();
-					usernamestr ="<settings pass=\"oobeSystem\">\n\
-						<component name=\"Microsoft-Windows-Shell-Setup\" processorArchitecture=\"amd64\" publicKeyToken=\"31bf3856ad364e35\" language=\"neutral\" versionScope=\"nonSxS\" xmlns:wcm=\"http://schemas.microsoft.com/WMIConfig/2002/State\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n\
-						<AutoLogon>\n\
-						<Password>\n\
-						<Value>"+pw+"</Value>\n\
-						<PlainText>true</PlainText>\n\
-						</Password>\n\
-						<Enabled>true</Enabled>\n\
-						<Username>"+un+"</Username>\n\
-						</AutoLogon>\n";
-					usernamestr2 = "<UserAccounts>\n\
-						<AdministratorPassword>\n\
-						<Value>"+pw+"</Value>\n\
-						<PlainText>true</PlainText>\n\
-						</AdministratorPassword>\n\
-						<LocalAccounts>\n\
-						<LocalAccount wcm:action = \"add\">\n\
-						<Password>\n\
-						<Value>" + pw + "</Value>\n\
-						<PlainText>true</PlainText>\n\
-						</Password>\n\
-						<DisplayName>" + un + "</DisplayName>\n\
-						<Group>" + un + "</Group>\n\
-						<Name>" + un + "</Name>\n\
-						</LocalAccount>\n\
-						</LocalAccounts>\n\
-						</UserAccounts>";
-				}if (SendMessage(soobe, BM_GETCHECK, 0, 0) == BST_CHECKED) {
-					skipoobestr = "<OOBE>\n\
-						<HideEULAPage>true</HideEULAPage>\n\
-						<HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>\n\
-						<HideOnlineAccountScreens>true</HideOnlineAccountScreens>\n\
-						<HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>\n\
-						<NetworkLocation>Work</NetworkLocation>\n\
-						<ProtectYourPC>1</ProtectYourPC>\n\
-						<SkipMachineOOBE>true</SkipMachineOOBE>\n\
-						<SkipUserOOBE>true</SkipUserOOBE>\n\
-						</OOBE>";
-					if (Edit_GetTextLength(username) == 0) {
-						usernamestr = "<settings pass=\"oobeSystem\">\n\
-						<component name=\"Microsoft-Windows-Shell-Setup\" processorArchitecture=\"amd64\" publicKeyToken=\"31bf3856ad364e35\" language=\"neutral\" versionScope=\"nonSxS\" xmlns:wcm=\"http://schemas.microsoft.com/WMIConfig/2002/State\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n\
-						<AutoLogon>\n\
-						<Password>\n\
-						<Value></Value>\n\
-						<PlainText>true</PlainText>\n\
-						</Password>\n\
-						<Enabled>true</Enabled>\n\
-						<Username>Administrator</Username>\n\
-						</AutoLogon>\n";
-						usernamestr2 = "<UserAccounts>\n\
-						<AdministratorPassword>\n\
-						<Value></Value>\n\
-						<PlainText>true</PlainText>\n\
-						</AdministratorPassword>\n\
-						<LocalAccounts>\n\
-						<LocalAccount wcm:action = \"add\">\n\
-						<Password>\n\
-						<Value></Value>\n\
-						<PlainText>true</PlainText>\n\
-						</Password>\n\
-						<DisplayName>Administrator</DisplayName>\n\
-						<Group>Administrator</Group>\n\
-						<Name>Administrator</Name>\n\
-						</LocalAccount>\n\
-						</LocalAccounts>\n\
-						</UserAccounts>";
-					}
-				}
-				if (Edit_GetTextLength(sexec) > 0) {
-					TCHAR sysexe[MAX_PATH] = { 0 };
-					Edit_GetText(sexec, sysexe, MAX_PATH);
-					sysprepexe = "<settings pass=\"specialize\">\n\
-						<component name=\"Microsoft-Windows-Deployment\" processorArchitecture=\"amd64\" publicKeyToken=\"31bf3856ad364e35\" language=\"neutral\" versionScope=\"nonSxS\" xmlns:wcm=\"http://schemas.microsoft.com/WMIConfig/2002/State\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" >\n\
-						<RunSynchronous>\n\
-						<RunSynchronousCommand wcm:action=\"add\">\n\
-						<Order>1</Order>\n\
-						<Path>"+ws2s(sysexe)+"</Path>\n\
-						</RunSynchronousCommand>\n\
-						</RunSynchronous>\n\
-						</component>\n\
-						</settings>\n\
-						</unattend>";
-				}
-				if (Edit_GetTextLength(oexec) > 0) {
-					TCHAR frstexe[MAX_PATH] = { 0 };
-					Edit_GetText(oexec, frstexe, MAX_PATH);
-					firstlogonexe = "<FirstLogonCommands>\n\
-						<SynchronousCommand wcm:action=\"add\">\n\
-						<CommandLine>"+ws2s(frstexe)+"</CommandLine>\n\
-						<Description>User-defined settings</Description>\n\
-						<Order>1</Order>\n\
-						</SynchronousCommand>\n\
-						</FirstLogonCommands>\n\
-						</component>\n\
-						</settings>\n";
-				}
-				string xmldata = xmldata1 + prokeydata + usernamestr + skipoobestr + usernamestr2 + firstlogonexe + sysprepexe;
-				TCHAR savexmldir[MAX_PATH] = { 0 };
-				GetModuleFileName(NULL, savexmldir, MAX_PATH);
-				string xmlfiledir = ws2s(savexmldir).c_str();
-				filesystem::path p = (xmlfiledir);
-				p.remove_filename();
-				fstream f;
-				f.open(p.string() + "\\unattend.xml", ios::out);
-				f << xmldata << endl;
-				f.close();
-				Edit_SetText(edit3, s2ws(p.string() + "\\unattend.xml").c_str());
-			}
-			EnableWindow(hWnd, true);
-			ShowWindow(hkey, SW_HIDE);
-			break;
-		}
-		break;
-	}
-	case WM_CLOSE:
-		EnableWindow(hWnd, true);
-		ShowWindow(hkey, SW_HIDE);
-		break;
-	default:
-		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
-	}
-	return 0;
-}
 LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg)//通过判断消息进行消息响应
 	{
-	case WM_PAINT: // 绘制消息
-	{
-		TCHAR msg1[] = L"提供的ISO包含多个映像";
-		TCHAR msg2[] = L"请选择要安装的映像";
-		TCHAR msg3[] = L"若为wim映像，通常安装文件名应为install.wim";
-		TCHAR msg4[] = L"请根据实际情况选择正确的映像";
-		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
-		SetBkMode(hdc, TRANSPARENT);
-		SetTextColor(hdc, RGB(0, 0, 64));
-		SelectObject(hdc, hFont2);
-		TextOut(hdc, 95, 9, msg1, _tcslen(msg1));
-		TextOut(hdc, 103, 33, msg2, _tcslen(msg2));
-		TextOut(hdc, 35, 82, msg3, _tcslen(msg3));
-		TextOut(hdc, 80, 111, msg4, _tcslen(msg4));
-		EndPaint(hwnd, &ps);
-		break;
-	}
+	case WM_INITDIALOG://初始化对话框的代码添加到这
+		for (string file : imglist) {
+			ComboBox_AddString(GetDlgItem(hwnd, IDC_COMBO1), s2ws(file).c_str());
+		}
+		ComboBox_SetCurSel(GetDlgItem(hwnd, IDC_COMBO1), 0);
+		return TRUE;
 	case WM_COMMAND: {
 		switch (LOWORD(wParam)) {
-		case btyes:
-			EnableWindow(hWnd, true);
-			waitingiso = false;
-			ShowWindow(hiso, SW_HIDE);
-			break;
+		case IDOK:
+			TCHAR wimfile[MAX_PATH] = { 0 };
+			ComboBox_GetText(GetDlgItem(hwnd, IDC_COMBO1), wimfile, MAX_PATH);
+			string wimuse = ws2s(wimfile);
+			isloading = false;
+			EnableWindow(win2, true);
+			EnableWindow(btndisk, true);
+			EnableWindow(btnghost, true);
+			EnableWindow(btnxp, true);
+			EnableWindow(btnreboot, true);
+			SetWindowText(protxt, NULL);
+			switch (imgtype) {
+			case 0: {
+				Edit_SetText(edit2, s2ws(wimuse).c_str());
+				wstring filefrom = s2ws(wimuse);
+				GetWimSysInfo(filefrom.c_str());
+				break;
+			}
+			case 1:
+				Edit_SetText(edit, s2ws(imglist.at(0)).c_str());
+				break;
+			}
+			EndDialog(hwnd, 0);
+			return TRUE;
 		}
-		break;
+		return TRUE;
 	}
 	case WM_CLOSE:
-		EnableWindow(hWnd, true);
-		waitingiso = false;
-		ShowWindow(hiso, SW_HIDE);
-		break;
-	default:
-		return DefWindowProc(hwnd, uMsg, wParam, lParam);//对不感兴趣的消息进行缺省处理，必须有该代码，否则程序有问题
+		TCHAR wimfile[MAX_PATH] = { 0 };
+		ComboBox_GetText(GetDlgItem(hwnd, IDC_COMBO1), wimfile, MAX_PATH);
+		string wimuse = ws2s(wimfile);
+		isloading = false;
+		EnableWindow(win2, true);
+		EnableWindow(btndisk, true);
+		EnableWindow(btnghost, true);
+		EnableWindow(btnxp, true);
+		EnableWindow(btnreboot, true);
+		SetWindowText(protxt, NULL);
+		switch (imgtype) {
+		case 0: {
+			Edit_SetText(edit2, s2ws(wimuse).c_str());
+			wstring filefrom = s2ws(wimuse);
+			GetWimSysInfo(filefrom.c_str());
+			break;
+		}
+		case 1:
+			Edit_SetText(edit, s2ws(imglist.at(0)).c_str());
+			break;
+		}
+		EndDialog(hwnd, 0);
+		return TRUE;
 	}
-	return 0;
+	return FALSE;
 }
