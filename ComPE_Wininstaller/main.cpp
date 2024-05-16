@@ -1212,7 +1212,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls.hCursor = LoadCursor(NULL, IDC_ARROW);//设置光标
 	wndcls.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON1));//设置窗体左上角的图标
 	wndcls.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls.lpfnWndProc = WinSunProc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
+	wndcls.lpfnWndProc = WinSunProc;//设置窗体的回调函数
 	wndcls.lpszClassName = L"CWinstWindowClass";//设置窗体的类名
 	wndcls.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
@@ -1224,7 +1224,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls2.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), NULL);//设置窗体左上角的图标
 	wndcls2.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
 	wndcls2.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls2.lpfnWndProc = InWin1Proc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
+	wndcls2.lpfnWndProc = InWin1Proc;//设置窗体的回调函数
 	wndcls2.lpszClassName = L"INWIN1";//设置窗体的类名
 	wndcls2.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls2.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
@@ -1236,7 +1236,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls3.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), NULL);//设置窗体左上角的图标
 	wndcls3.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
 	wndcls3.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls3.lpfnWndProc = InWin2Proc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
+	wndcls3.lpfnWndProc = InWin2Proc;//设置窗体的回调函数
 	wndcls3.lpszClassName = L"INWIN2";//设置窗体的类名
 	wndcls3.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls3.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
@@ -1248,10 +1248,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls4.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), NULL);//设置窗体左上角的图标
 	wndcls4.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
 	wndcls4.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls4.lpfnWndProc = InWin3Proc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
+	wndcls4.lpfnWndProc = InWin3Proc;//设置窗体的回调函数
 	wndcls4.lpszClassName = L"INWIN3";//设置窗体的类名
 	wndcls4.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls4.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
+	RegisterClass(&wndcls4);
 	WNDCLASS wndcls7; //创建一个窗体类
 	wndcls7.cbClsExtra = 0;//类的额外内存，默认为0即可
 	wndcls7.hCursor = LoadCursor(NULL, IDC_ARROW);//设置
@@ -1259,7 +1260,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls7.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), NULL);//设置窗体左上角的图标
 	wndcls7.hbrBackground = CreateSolidBrush(RGB(255, 255, 255));//获取画刷句柄（将返回的HGDIOBJ进行强制类型转换）
 	wndcls7.hInstance = hInstance;//设置窗体所属的应用程序实例
-	wndcls7.lpfnWndProc = InWin4Proc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
+	wndcls7.lpfnWndProc = InWin4Proc;//设置窗体的回调函数
 	wndcls7.lpszClassName = L"INWIN4";//设置窗体的类名
 	wndcls7.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls7.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
