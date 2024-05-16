@@ -1913,6 +1913,7 @@ void writewim() {
 	Edit_GetText(edit3, uad, 1024);
 	string uadfile = ws2s(uad).c_str();
 	if (isFileExists_ifstream(uadfile)) {
+		CreateDirectoryA((ws2s(tar) + "Windows\\Panther").c_str(),NULL);
 		CopyFile(uad, s2ws(ws2s(tar) + "Windows\\Panther\\unattend.xml").c_str(), false);
 	}
 	//
