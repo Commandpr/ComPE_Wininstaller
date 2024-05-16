@@ -1213,7 +1213,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls.hIcon = LoadIcon((HINSTANCE)GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON1));//设置窗体左上角的图标
 	wndcls.hInstance = hInstance;//设置窗体所属的应用程序实例
 	wndcls.lpfnWndProc = WinSunProc;//设置窗体的回调函数，暂时没写，先设置为NULL，后面补上
-	wndcls.lpszClassName = L"ComPEWindowClass";//设置窗体的类名
+	wndcls.lpszClassName = L"CWinstWindowClass";//设置窗体的类名
 	wndcls.lpszMenuName = NULL;//设置窗体的菜单,没有，填NULL
 	wndcls.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
 	RegisterClass(&wndcls);//向操作系统注册窗体
@@ -1265,7 +1265,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	wndcls7.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
 	RegisterClass(&wndcls7);//向操作系统注册窗体
 	//产生一个窗体，并返回该窗体的句柄，第一个参数必须为要创建的窗体的类名，第二个参数为窗体标题名
-	HWND hwnd = CreateWindow(L"ComPEWindowClass", L"CWInst系统安装工具",
+	HWND hwnd = CreateWindow(L"CWinstWindowClass", L"CWInst系统安装工具",
 		WS_OVERLAPPEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME, createx,
 		createy, 640, 480,
 		NULL, NULL, hInstance, NULL);
