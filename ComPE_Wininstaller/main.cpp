@@ -68,7 +68,7 @@ int createy2 = scrHeight / 2 - 160;
 int createx3 = scrWidth / 2 - 180;
 int createy3 = scrHeight / 2 - 90;
 bool ispar = true;
-HWND hWnd,hkey;
+HWND hWnd;
 HWND btnlogo;
 HFONT hFont;
 HFONT hFont2,hFont3;
@@ -94,6 +94,7 @@ LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 using namespace std;
 string MountedDisk = "";
+vector<string> MountEFI;
 string ws2s(const wstring& ws){
 	try {
 		_bstr_t t = ws.c_str();
@@ -341,6 +342,57 @@ int GetDiskNum(char str[2]) {
 	CloseHandle(hwnd);
 	return sdn.DeviceNumber;
 }
+void DeleteMountedEFI() {
+	for (string efipar : MountEFI) {
+		string cmd = ".\\mountvol.exe " + efipar + " /D";
+		system(cmd.c_str());
+	}
+}
+void SetAllVolumeMountPoint() {
+	DeleteMountedEFI();
+	char szVolumePathName[MAX_PATH] = { 0 };
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+	char volumeName[MAX_PATH] = { 0 };
+	string VolumePathName;
+	string VolumeName;
+	// 开始枚举卷
+	hFind = FindFirstVolumeA(volumeName, ARRAYSIZE(volumeName));
+	if (hFind == INVALID_HANDLE_VALUE) {
+		return;
+	}
+	do {
+		GetVolumePathNamesForVolumeNameA(volumeName, szVolumePathName, MAX_PATH, NULL);
+		VolumePathName = szVolumePathName;
+		VolumeName = volumeName;
+		if (VolumePathName == "") {
+			char chPath = 'A';
+			string MDisk = "";
+			for (int i = 0; i < 26; ++i)
+			{
+				string strPath(1, chPath);
+				strPath += ":";
+				if (_access(strPath.c_str(), 0) != 0)
+				{
+					MDisk = strPath;
+				}
+				++chPath;
+			}
+			if (MDisk == "") {
+				FindVolumeClose(hFind);
+				return;
+			}
+			MountEFI.push_back(MDisk);
+			string cmd = ".\\mountvol.exe " + MDisk + " " + VolumeName;
+			system(cmd.c_str());
+		}
+
+	} while (FindNextVolumeA(hFind, volumeName, ARRAYSIZE(volumeName)));
+
+	// 关闭枚举句柄
+	FindVolumeClose(hFind);
+	return;
+}
+
 
 void AddDiskList(HWND cb) {
 	SendMessage(cb, CB_RESETCONTENT, 0, 0);
@@ -613,30 +665,7 @@ vector<string> findFilesWithExtensions(const string& directoryPath, const vector
 	}
 	return foundFiles;
 }
-/*
-string MountEFI;
-void MountEFIPartition() {
-	char chPath = 'A';
-	string MDisk = "";
-	for (int i = 0; i < 26; ++i)
-	{
-		string strPath(1, chPath);
-		strPath += ":";
-		if (_access(strPath.c_str(), 0) != 0)
-		{
-			MDisk = strPath;
-		}
-		++chPath;
-	}
-	if (MDisk == "") {
-		MessageBox(hWnd, L"没有可用盘符，无法挂载EFI分区。若需要，请自行为EFI分区分配盘符", NULL, MB_ICONERROR);
-		return;
-	}
-	MountEFI = MDisk;
-	string mountcmd = "mountvol " + MDisk + " /s";
-	system(mountcmd.c_str());
-}
-*/
+
 
 string isopath;
 int imgtype;
@@ -1531,9 +1560,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	string program_info = "感谢您使用CWinst Windows安装工具！\n\
 本程序主要由C++ WinAPI编写，挂载镜像是第三方OSFMount，硬盘列表是易语言编写。目前Windows的安装方式主要有Ghost系统安装，Windows Vista+的WIM/ESD安装和NT5.x类的I386三种安装方法，程序提供了三种方式以应对不同的操作系统的安装执行。\n\
 为保证您的使用体验，使用时需注意以下几点：\n\
-1.Ghost备份还原的时候由于赛门铁克Ghost程序限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
+1.Ghost备份还原的时候由于Symantec Ghost程序限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
 2.WIM/ESD安装（Legacy BIOS启动）和NT5.x安装方式要求，安装分区必须是一个活动主分区，否则将会因为没有PBR引导而启动失败，可通过DiskGenius或傲梅分区助手查看分区状态是否为活动主分区。\n\
-3.WIM/ESD安装（UEFI BIOS启动）模式中，为了正常的引导，建议您提前将ESP分区分配一个盘符，以便于安装程序安装引导。\n\
+3.WIM/ESD安装（UEFI BIOS启动）模式中，程序自动装载了EFI分区以便于安装引导\n\
 4.NT5.x系统不支持UEFI启动和GPT硬盘格式，请确定自己的启动方式是Legacy启动并且硬盘格式是MBR，可通过Diskgenius或傲梅分区助手检查格式并更改成MBR格式磁盘。\n\
 5.程序执行操作期间，不建议对计算机进行任何操作，否则有可能对您的设备造成损坏！\n\
 6.程序提供无人值守的配置设置，允许您自定义一些在Windows安装期间自动执行的操作。本程序不提供盗版激活服务，如果要填写激活密钥请自行前往Microsoft官方网站购买。\n\
@@ -1547,11 +1576,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	SendMessage(btfile1, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btre1, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
+	edit = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 119, 180, 21, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 150, 180, 18, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(hWndComboBox, WM_SETFONT, (WPARAM)hFont2, 1);
@@ -1598,14 +1627,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	SendMessage(btfile2, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btre2, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btfmt1, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit2 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
+	edit2 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 94, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	hWndComboBox2 = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 125, 115, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	hWndComboBox3 = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 185, 115, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	HWND btfmt2 = CreateWindow(L"BUTTON", L"格式化", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
@@ -1618,7 +1647,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox4 = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 155, 180, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(edit2, WM_SETFONT, (WPARAM)hFont2, 1);
@@ -1632,19 +1661,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	SendMessage(btwimstart, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btfile3, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit3 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
+	edit3 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 250, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit3, WM_SETFONT, (WPARAM)hFont2, 1);
-	hsavepathedit = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
+	hsavepathedit = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 99, 180, 21, win5, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(hsavepathedit, WM_SETFONT, (WPARAM)hFont2, 1);
 	hsavediskcb = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 134, 180, 18, win5, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(hsavediskcb, WM_SETFONT, (WPARAM)hFont2, 1);
 	hcompcbox = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 170, 180, 18, win5, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(hcompcbox, WM_SETFONT, (WPARAM)hFont2, 1);
@@ -1657,14 +1686,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		125, 300, 120, 50, win3, (HMENU)xpstartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(btxpstart, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit4 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
+	edit4 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 99, 180, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit4, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit5 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER,
+	edit5 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 169, 180, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit5, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox5 = CreateWindow(WC_COMBOBOX, TEXT(""),
-		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
+		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 134, 115, 18, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	HWND btfmt3 = CreateWindow(L"BUTTON", L"格式化", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
@@ -1716,6 +1745,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//hok = CreateWindow(L"BUTTON", L"确定", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 	//	257, 106, 75, 23, hiso, (HMENU)btyes, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 	//	NULL);
+	SetAllVolumeMountPoint();
 	AddDiskList(hWndComboBox);
 	AddDiskList(hWndComboBox2);
 	AddDiskList(hWndComboBox3);
@@ -1834,6 +1864,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case ghodiskbt:
 			if (ispar) {
+				SetAllVolumeMountPoint();
 				AddDiskList(hWndComboBox);
 			}
 			else {
@@ -1842,6 +1873,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		case parmode:
+			SetAllVolumeMountPoint();
 			AddDiskList(hWndComboBox);
 			ispar = true;
 			SendMessage(selectmodepar, BM_SETCHECK, 1, 0);
@@ -1952,7 +1984,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TCHAR wimos[] = L"   系统选择：";
 		TCHAR xmldir[] = L"      应答文件：";
 		TCHAR msg5[] = L"如果您是UEFI（请保证目标分区所在磁盘分区格式是GPT）";
-		TCHAR msg6[] = L"建议您临时将ESP分区分配盘符后，将其设置成您的引导分区";
+		TCHAR msg6[] = L"        您可通过资源管理器判断哪个是您的引导分区";
 		TCHAR msg7[] = L"          （留空或路径不正确则不进行无人值守模式）";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
@@ -2007,11 +2039,13 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case wimdiskbt1:
 		{
+			SetAllVolumeMountPoint();
 			AddDiskList(hWndComboBox2);
 			break;
 		}
 		case wimdiskbt2:
 		{
+			SetAllVolumeMountPoint();
 			AddDiskList(hWndComboBox3);
 			break;
 		}
@@ -2229,6 +2263,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		}
 		case xpdiskbt:
 		{
+			SetAllVolumeMountPoint();
 			AddDiskList(hWndComboBox5);
 			break;
 		}
@@ -2460,6 +2495,7 @@ LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		{
 		case savediskbt:
 		{
+			SetAllVolumeMountPoint();
 			AddDiskList(hsavediskcb);
 			break;
 		}
@@ -2618,22 +2654,18 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_CLOSE:
 		if (MessageBox(hwnd, L"确定要关闭程序吗？执行操作期间关闭可能导致设备损坏，确保所有操作结束后，选择“是”关闭程序。", L"提示：", MB_ICONQUESTION | MB_YESNO) == IDYES) {
-			DestroyWindow(hwnd);
 			DestroyWindow(GetConsoleWindow());
+			DestroyWindow(hwnd);
 		}
 		break;
 	case WM_DESTROY:
 	{
-		
-		//string unmountcmd = "mountvol "+MountEFI+" /d";
-		//system(unmountcmd.c_str());
+		DeleteMountedEFI();
 		string unmountcmd = ".\\OSFMount.com -D -m " + MountedDisk;
 		system(unmountcmd.c_str());
 		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 		SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
-		SendMessage(hkey, WM_FONTCHANGE, 0, 0);
-		//SendMessage(hiso, WM_FONTCHANGE, 0, 0);
 		PostQuitMessage(0);//发出WM_QUIT消息，结束消息循环
 		break;
 	}
