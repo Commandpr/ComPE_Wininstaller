@@ -1560,7 +1560,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	string program_info = "感谢您使用CWinst Windows安装工具！\n\
 本程序主要由C++ WinAPI编写，挂载镜像是第三方OSFMount，硬盘列表是易语言编写。目前Windows的安装方式主要有Ghost系统安装，Windows Vista+的WIM/ESD安装和NT5.x类的I386三种安装方法，程序提供了三种方式以应对不同的操作系统的安装执行。\n\
 为保证您的使用体验，使用时需注意以下几点：\n\
-1.Ghost备份还原的时候由于Symantec Ghost程序限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
+1.Ghost备份还原的时候由于Norton Ghost程序限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
 2.WIM/ESD安装（Legacy BIOS启动）和NT5.x安装方式要求，安装分区必须是一个活动主分区，否则将会因为没有PBR引导而启动失败，可通过DiskGenius或傲梅分区助手查看分区状态是否为活动主分区。\n\
 3.WIM/ESD安装（UEFI BIOS启动）模式中，程序自动装载了EFI分区以便于安装引导\n\
 4.NT5.x系统不支持UEFI启动和GPT硬盘格式，请确定自己的启动方式是Legacy启动并且硬盘格式是MBR，可通过Diskgenius或傲梅分区助手检查格式并更改成MBR格式磁盘。\n\
