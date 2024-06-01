@@ -577,9 +577,13 @@ void loading_anim() {
 	while (true) {
 		if (!isloading) {
 			SetWindowText(protxt2, NULL);
+			EnableWindow(btnlogo, TRUE);
+			EnableWindow(hTabCtrl, TRUE);
 			continue;
 		}
-		for (unsigned int i = 0xE0FF; i <= 0xE176; i++) {
+		for (unsigned int i = 0xE100; i <= 0xE176; i++) {
+			EnableWindow(btnlogo, FALSE);
+			EnableWindow(hTabCtrl, FALSE);
 			wstring ws = unicode_to_wstring(i);
 			SetWindowText(protxt2, ws.c_str());
 			Sleep(20);
