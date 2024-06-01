@@ -344,8 +344,7 @@ int GetDiskNum(char str[2]) {
 }
 void DeleteMountedEFI() {
 	for (string efipar : MountEFI) {
-		string cmd = ".\\mountvol.exe " + efipar + " /D";
-		system(cmd.c_str());
+		DeleteVolumeMountPointA((efipar + "\\").c_str());
 	}
 }
 void SetAllVolumeMountPoint() {
@@ -361,7 +360,7 @@ void SetAllVolumeMountPoint() {
 		return;
 	}
 	do {
-		GetVolumePathNamesForVolumeNameA(volumeName, szVolumePathName, MAX_PATH, NULL);
+		GetVolumePathNamesForVolumeNameA(volumeName, szVolumePathName, MAX_PATH, nullptr);
 		VolumePathName = szVolumePathName;
 		VolumeName = volumeName;
 		if (VolumePathName == "") {
@@ -382,8 +381,7 @@ void SetAllVolumeMountPoint() {
 				return;
 			}
 			MountEFI.push_back(MDisk);
-			string cmd = ".\\mountvol.exe " + MDisk + " " + VolumeName;
-			system(cmd.c_str());
+			SetVolumeMountPointA((MDisk + "\\").c_str(), VolumeName.c_str());
 		}
 
 	} while (FindNextVolumeA(hFind, volumeName, ARRAYSIZE(volumeName)));
@@ -653,7 +651,7 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 }
 vector<string> findFilesWithExtensions(const string& directoryPath, const vector<string>& extensions) {
 	vector<string> foundFiles;
-	for (const auto& entry : filesystem::recursive_directory_iterator(directoryPath)) {
+	for (const auto& entry : filesystem::recursive_directory_iterator(directoryPath+"\\")) {
 		if (filesystem::is_regular_file(entry)) {
 			for (const auto& ext : extensions) {
 				if (entry.path().extension() == ext) {
