@@ -575,13 +575,13 @@ wstring unicode_to_wstring(unsigned int code) {
 
 void loading_anim() {
 	while (true) {
-		if (!isloading) {
-			SetWindowText(protxt2, NULL);
-			EnableWindow(btnlogo, TRUE);
-			EnableWindow(hTabCtrl, TRUE);
-			continue;
-		}
 		for (unsigned int i = 0xE100; i <= 0xE176; i++) {
+			if (!isloading) {
+				SetWindowText(protxt2, NULL);
+				EnableWindow(btnlogo, TRUE);
+				EnableWindow(hTabCtrl, TRUE);
+				break;
+			}
 			EnableWindow(btnlogo, FALSE);
 			EnableWindow(hTabCtrl, FALSE);
 			wstring ws = unicode_to_wstring(i);
