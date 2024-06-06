@@ -20,12 +20,12 @@
 #include <fcntl.h>
 #include <Shlobj.h>
 #include "wimlib.h"
-//#include "dismapi.h"
+#include "dismapi.h"
 //#include "json/json.h"
 #include "tinyxml.h"
 #include "resource.h"
 #pragma comment(lib,"libwim.lib")
-//#pragma comment(lib,"dismapi.lib")
+#pragma comment(lib,"dismapi.lib")
 
 #define ghobt 1000
 #define xpbt 1001
@@ -46,6 +46,7 @@
 #define wimstartbt 1011
 #define savestartbt 1013
 #define xpstartbt 1012
+#define DRIVELOADBT 9009
 #define saveloadbt 1113
 #define savediskbt 2002
 #define diskmode 5000
@@ -81,7 +82,7 @@ HWND btnxp;
 HWND btnwim;
 HWND btnghost, ghostartbtn, btwimstart, btxpstart;
 HWND win1, win2, win3, win4, win5;
-HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5;
+HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5,editDrive;
 HWND hsavediskcb,hsavepathedit,hcompcbox;
 HWND selectmodedisk, selectmodepar;
 HWND kyes, kno;
@@ -996,6 +997,39 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	synchronousCommand->LinkEndChild(commandLine);
 	tinyXmlDoc->SaveFile(".\\Unattend.xml");
 }
+
+int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
+	DismLogLevel Level = DismLogErrorsWarningsInfo;
+	DismString* ErrStr;
+	HRESULT hr = DismInitialize(Level, NULL, NULL);
+	if (FAILED(hr)) {
+		DismGetLastErrorMessage(&ErrStr);
+		MessageBoxA(hWnd, ("初始化Dism会话失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, NULL);
+		DismDelete(ErrStr);
+		return 1;
+	}
+	DismSession Session = DISM_SESSION_DEFAULT;
+	hr = DismOpenSession(TargetPath, NULL, NULL, &Session);
+	if (FAILED(hr)) {
+		DismGetLastErrorMessage(&ErrStr);
+		MessageBoxA(hWnd, ("打开Windows安装文件夹失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, NULL);
+		DismDelete(ErrStr);
+		DismShutdown();
+		return 1;
+	}
+	hr = DismAddDriver(Session, DriverPath, FALSE);
+	if (FAILED(hr)) {
+		DismGetLastErrorMessage(&ErrStr);
+		MessageBoxA(hWnd, ("安装驱动失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, NULL);
+		DismDelete(ErrStr);
+		DismCloseSession(Session);
+		DismShutdown();
+		return 1;
+	}
+	DismCloseSession(Session);
+	DismShutdown();
+	return 0;
+}
 /*
 // Helper function to check for registry key existence
 bool IsRegistryKeyPresent(HKEY hKey, LPCSTR subKey) {
@@ -1564,10 +1598,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 为保证您的使用体验，使用时需注意以下几点：\n\
 1.Ghost备份还原的时候由于Norton Ghost程序限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
 2.WIM/ESD安装（Legacy BIOS启动）和NT5.x安装方式要求，安装分区必须是一个活动主分区，否则将会因为没有PBR引导而启动失败，可通过DiskGenius或傲梅分区助手查看分区状态是否为活动主分区。\n\
-3.WIM/ESD安装（UEFI BIOS启动）模式中，程序自动装载了EFI分区以便于安装引导\n\
-4.NT5.x系统不支持UEFI启动和GPT硬盘格式，请确定自己的启动方式是Legacy启动并且硬盘格式是MBR，可通过Diskgenius或傲梅分区助手检查格式并更改成MBR格式磁盘。\n\
-5.程序执行操作期间，不建议对计算机进行任何操作，否则有可能对您的设备造成损坏！\n\
-6.程序提供无人值守的配置设置，允许您自定义一些在Windows安装期间自动执行的操作。本程序不提供盗版激活服务，如果要填写激活密钥请自行前往Microsoft官方网站购买。\n\
+3.NT5.x系统不支持UEFI启动和GPT硬盘格式，请确定自己的启动方式是Legacy启动并且硬盘格式是MBR，可通过Diskgenius或傲梅分区助手检查格式并更改成MBR格式磁盘。\n\
+4.程序执行操作期间，不建议对计算机进行任何操作，否则有可能对您的设备造成损坏！\n\
+5.程序提供无人值守的配置设置，允许您自定义一些在Windows安装期间自动执行的操作。本程序不提供盗版激活服务，如果要填写激活密钥请自行前往Microsoft官方网站购买。\n\
 感谢您的使用，祝您使用愉快！";
 	SetWindowText(win4, s2ws(program_info).c_str());
 	HWND btfile1 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
@@ -1578,7 +1611,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	SendMessage(btfile1, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btre1, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+	edit = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 119, 180, 21, win1, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox = CreateWindow(WC_COMBOBOX, TEXT(""),
@@ -1627,9 +1660,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	//SetWindowPos(barfw, NULL, 0, 425, 100, 15, SWP_NOMOVE);
 	SendMessage(btfile2, WM_SETFONT, (WPARAM)hFont2, 1);
+	HWND btfiled = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		280, 218, 64, 22, win2, (HMENU)DRIVELOADBT, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	editDrive = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+		100, 218, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+	SendMessage(editDrive, WM_SETFONT, (WPARAM)hFont2, 1);
+	SendMessage(btfiled, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btre2, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btfmt1, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit2 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+	edit2 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 94, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	hWndComboBox2 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
@@ -1645,7 +1685,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	SendMessage(btfmt2, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(hWndComboBox3, WM_SETFONT, (WPARAM)hFont2, 1);
 	HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
-		280, 186, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		280, 185, 64, 22, win2, (HMENU)wimdiskbt2, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(btre3, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox4 = CreateWindow(WC_COMBOBOX, TEXT(""),
@@ -1663,10 +1703,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		NULL);
 	SendMessage(btwimstart, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btfile3, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit3 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+	edit3 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 250, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit3, WM_SETFONT, (WPARAM)hFont2, 1);
-	hsavepathedit = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+	hsavepathedit = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 99, 180, 21, win5, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(hsavepathedit, WM_SETFONT, (WPARAM)hFont2, 1);
 	hsavediskcb = CreateWindow(WC_COMBOBOX, TEXT(""),
@@ -1688,10 +1728,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		125, 300, 120, 50, win3, (HMENU)xpstartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(btxpstart, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit4 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+	edit4 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 99, 180, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit4, WM_SETFONT, (WPARAM)hFont2, 1);
-	edit5 = CreateWindow(L"edit", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+	edit5 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 169, 180, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit5, WM_SETFONT, (WPARAM)hFont2, 1);
 	hWndComboBox5 = CreateWindow(WC_COMBOBOX, TEXT(""),
@@ -1943,8 +1983,8 @@ void writewim() {
 		return;
 	}
 	wimlib_free(WIM);
-	TCHAR uad[1024] = { 0 };
-	Edit_GetText(edit3, uad, 1024);
+	TCHAR uad[MAX_PATH] = { 0 };
+	Edit_GetText(edit3, uad, MAX_PATH);
 	string uadfile = ws2s(uad).c_str();
 	if (isFileExists_ifstream(uadfile)) {
 		CreateDirectoryA((ws2s(tar) + "Windows\\Panther").c_str(),NULL);
@@ -1952,13 +1992,28 @@ void writewim() {
 	}
 	//
 	SetWindowText(protxt, L"创建引导...");
-	TCHAR boot[1024] = { 0 };
-	ComboBox_GetText(hWndComboBox3, boot, 1024);
+	TCHAR boot[MAX_PATH] = { 0 };
+	ComboBox_GetText(hWndComboBox3, boot, MAX_PATH);
 	string cmd = "bcdboot " + ws2s(tar) + "Windows /s " + ws2s(boot).at(0) + ": /f ALL /l zh-cn";
 	system(cmd.c_str());
 	cmd = ".\\bootsect.exe /nt60 " + to_string(ws2s(tar).at(0)) + ": /mbr";
 	system(cmd.c_str());
 	//
+	
+	TCHAR driverpath[MAX_PATH] = { 0 };
+	Edit_GetText(editDrive, driverpath, MAX_PATH);
+	if (isFileExists_ifstream(ws2s(driverpath))) {
+		SetWindowText(protxt, L"安装驱动...");
+		if (InstallDriver(tar, driverpath) != 0) {
+			isloading = false;
+			EnableWindow(win2, true);
+			EnableWindow(btnghost, true);
+			EnableWindow(btnxp, true);
+			EnableWindow(btndisk, true);
+			EnableWindow(btnreboot, true);
+			return;
+		}
+	}
 	isloading = false;
 	MessageBox(hWnd, L"应用完成！重启计算机后将进行进一步安装Windows操作！", L"成功：", MB_ICONINFORMATION);
 	SetWindowText(protxt, NULL);
@@ -1984,10 +2039,9 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TCHAR wimdisk[] = L"   安装目标：";
 		TCHAR wimbisk[] = L"   引导分区：";
 		TCHAR wimos[] = L"   系统选择：";
-		TCHAR xmldir[] = L"      应答文件：";
-		TCHAR msg5[] = L"如果您是UEFI（请保证目标分区所在磁盘分区格式是GPT）";
-		TCHAR msg6[] = L"        您可通过资源管理器判断哪个是您的引导分区";
-		TCHAR msg7[] = L"          （留空或路径不正确则不进行无人值守模式）";
+		TCHAR driver[] = L"   驱动文件：";
+		TCHAR xmldir[] = L"   应答文件：";
+		TCHAR msg7[] = L"   （留空或路径不正确则不进行无人值守模式和驱动安装）";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
@@ -2002,9 +2056,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		TextOut(hdc, 31, 128, wimdisk, _tcslen(wimdisk));
 		TextOut(hdc, 31, 190, wimbisk, _tcslen(wimbisk));
 		TextOut(hdc, 31, 160, wimos, _tcslen(wimos));
-		TextOut(hdc, 21, 250, xmldir, _tcslen(xmldir));
-		TextOut(hdc, 32, 215, msg5, _tcslen(msg5));
-		TextOut(hdc, 32, 230, msg6, _tcslen(msg6));
+		TextOut(hdc, 31, 250, xmldir, _tcslen(xmldir));
+		TextOut(hdc, 31, 220, driver, _tcslen(driver));
 		TextOut(hdc, 32, 270, msg7, _tcslen(msg7));
 		EndPaint(hwnd, &ps);
 		break;
@@ -2068,6 +2121,11 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Edit_GetText(hWndComboBox3, drive, 5);
 			char par = ws2s(drive).c_str()[0];
 			SHFormatDrive(hwnd, par - 65, SHFMT_ID_DEFAULT, SHFMT_OPT_FULL);
+			break;
+		}
+		case DRIVELOADBT:
+		{
+			Edit_SetText(editDrive, GetGhoFile(L"驱动安装文件(*.inf)\0*.inf\0\0", hwnd));
 			break;
 		}
 		case wimstartbt:
@@ -2283,7 +2341,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			ZeroMemory(&bi, sizeof(BROWSEINFO));
 			bi.hwndOwner = NULL;
 			bi.pszDisplayName = szBuffer;
-			bi.lpszTitle = _T("从下面选I386文件夹目录:");
+			bi.lpszTitle = _T("选择I386目录:");
 			bi.ulFlags = BIF_RETURNFSANCESTORS;
 			LPITEMIDLIST idl = SHBrowseForFolder(&bi);
 			if (NULL == idl)
