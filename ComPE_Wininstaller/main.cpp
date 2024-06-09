@@ -487,7 +487,7 @@ enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, uni
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_STREAMS:
 		{
-			if (info->extract.completed_bytes == 0) {
+			if (info->extract.completed_bytes <= 5) {
 				nowtime = 0;
 			}
 			float f = (float)info->extract.completed_bytes / (float)info->extract.total_bytes;
@@ -577,6 +577,7 @@ wstring unicode_to_wstring(unsigned int code) {
 void loading_anim() {
 	while (true) {
 		for (unsigned int i = 0xE100; i <= 0xE176; i++) {
+			Sleep(20);
 			if (!isloading) {
 				SetWindowText(protxt2, NULL);
 				EnableWindow(btnlogo, TRUE);
@@ -587,7 +588,6 @@ void loading_anim() {
 			EnableWindow(hTabCtrl, FALSE);
 			wstring ws = unicode_to_wstring(i);
 			SetWindowText(protxt2, ws.c_str());
-			Sleep(20);
 		}
 	}
 }
@@ -1004,26 +1004,29 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 	HRESULT hr = DismInitialize(Level, NULL, NULL);
 	if (FAILED(hr)) {
 		DismGetLastErrorMessage(&ErrStr);
-		MessageBoxA(hWnd, ("初始化Dism会话失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, NULL);
+		MessageBoxA(hWnd, ("初始化Dism会话失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
 		DismDelete(ErrStr);
+		SetWindowText(protxt, NULL);
 		return 1;
 	}
 	DismSession Session = DISM_SESSION_DEFAULT;
 	hr = DismOpenSession(TargetPath, NULL, NULL, &Session);
 	if (FAILED(hr)) {
 		DismGetLastErrorMessage(&ErrStr);
-		MessageBoxA(hWnd, ("打开Windows安装文件夹失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, NULL);
+		MessageBoxA(hWnd, ("打开Windows安装文件夹失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
 		DismDelete(ErrStr);
 		DismShutdown();
+		SetWindowText(protxt, NULL);
 		return 1;
 	}
 	hr = DismAddDriver(Session, DriverPath, FALSE);
 	if (FAILED(hr)) {
 		DismGetLastErrorMessage(&ErrStr);
-		MessageBoxA(hWnd, ("安装驱动失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, NULL);
+		MessageBoxA(hWnd, ("安装驱动失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
 		DismDelete(ErrStr);
 		DismCloseSession(Session);
 		DismShutdown();
+		SetWindowText(protxt, NULL);
 		return 1;
 	}
 	DismCloseSession(Session);
