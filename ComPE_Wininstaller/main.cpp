@@ -63,11 +63,7 @@
 int scrWidth = GetSystemMetrics(SM_CXSCREEN);
 int scrHeight = GetSystemMetrics(SM_CYSCREEN);
 int createx = scrWidth / 2 - 320;
-int createx2 = scrWidth / 2 - 240;
 int createy = scrHeight / 2 - 240;
-int createy2 = scrHeight / 2 - 160;
-int createx3 = scrWidth / 2 - 180;
-int createy3 = scrHeight / 2 - 90;
 bool ispar = true;
 HWND hWnd;
 HWND btnlogo;
@@ -452,7 +448,7 @@ void CountSeconds() {
 	}
 }
 string loading = "正在创建文件结构...";
-enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, union wimlib_progress_info* info, void* progctx)
+wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progress_info* info, void* progctx)
 {
 		switch (msg_type) {
 		case WIMLIB_PROGRESS_MSG_EXTRACT_IMAGE_BEGIN:
@@ -473,7 +469,7 @@ enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, uni
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_METADATA:
 		{
-			if (info->extract.current_file_count == 0) {
+			if (info->extract.current_file_count == 0 || info->extract.current_file_count == info->extract.end_file_count) {
 				nowtime = 0;
 			}
 			float f = (float)info->extract.current_file_count / (float)info->extract.end_file_count;
@@ -487,7 +483,7 @@ enum wimlib_progress_status ApplyWimImage(enum wimlib_progress_msg msg_type, uni
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_STREAMS:
 		{
-			if (info->extract.completed_bytes <= 5) {
+			if (info->extract.completed_bytes == 0) {
 				nowtime = 0;
 			}
 			float f = (float)info->extract.completed_bytes / (float)info->extract.total_bytes;
