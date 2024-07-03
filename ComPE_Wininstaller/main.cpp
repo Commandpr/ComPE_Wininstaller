@@ -47,6 +47,7 @@
 #define savestartbt 1013
 #define xpstartbt 1012
 #define DRIVELOADBT 9009
+#define RUNIMGDOWNLOAD 9010
 #define saveloadbt 1113
 #define savediskbt 2002
 #define diskmode 5000
@@ -1662,14 +1663,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND btfiled = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 218, 64, 22, win2, (HMENU)DRIVELOADBT, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
+	HWND btDownload = CreateWindow(L"BUTTON", L"下载映像", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		216, 94, 64, 22, win2, (HMENU)RUNIMGDOWNLOAD, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
 	editDrive = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 218, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(editDrive, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btfiled, WM_SETFONT, (WPARAM)hFont2, 1);
+	SendMessage(btDownload, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btre2, WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(btfmt1, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit2 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
-		100, 94, 180, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+		100, 94, 115, 21, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	hWndComboBox2 = CreateWindow(WC_COMBOBOX, TEXT(""),
 		CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE | CBS_DROPDOWNLIST,
 		100, 125, 115, 18, win2, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -2127,6 +2132,12 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Edit_SetText(editDrive, GetGhoFile(L"驱动安装文件(*.inf)\0*.inf\0\0", hwnd));
 			break;
 		}
+		case RUNIMGDOWNLOAD:
+		{
+			string cline = "start .\\Downloader\\CDowner.exe "+to_string((int)hWnd);
+			system(cline.c_str());
+			break;
+		}
 		case wimstartbt:
 		{
 			TCHAR dirs[MAX_PATH] = { 0 };
@@ -2533,7 +2544,7 @@ LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		TCHAR msg4[] = L"                    保存映像为WIM，若想还原备份";
 		TCHAR msg5[] = L"        可通过本程序“WIM映像应用”功能还原备份的映像";
 		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
+		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文 
 		SetBkMode(hdc, TRANSPARENT);
 		SetTextColor(hdc, RGB(0, 0, 64));
 		SelectObject(hdc, hFont2);
