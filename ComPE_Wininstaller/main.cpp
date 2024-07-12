@@ -114,6 +114,17 @@ bool isFileExists_ifstream(string& name) {
 	ifstream f(name.c_str());
 	return f.good();
 }
+bool endsWithEsd(const TCHAR* str) {
+	const TCHAR* suffix = _T(".esd");
+	size_t strLen = _tcslen(str);
+	size_t suffixLen = _tcslen(suffix);
+
+	if (strLen < suffixLen) {
+		return false;
+	}
+
+	return _tcscmp(str + strLen - suffixLen, suffix) == 0;
+}
 bool is_folder_path(string& path) {
 	// Check for existence.
 	if ((_access(path.c_str(), 0)) != -1) {
@@ -1727,7 +1738,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ComboBox_AddString(hcompcbox, L"无压缩(None)");
 	ComboBox_AddString(hcompcbox, L"最快压缩(XPRESS)");
 	ComboBox_AddString(hcompcbox, L"普通压缩(LZX)");
-	ComboBox_AddString(hcompcbox, L"最大压缩(LZMS)");
+	ComboBox_AddString(hcompcbox, L"极高压缩(LZMS非固实压缩)");
+	ComboBox_AddString(hcompcbox, L"最大压缩(LZMS固实压缩)");
 	ComboBox_SetCurSel(hcompcbox, 2);
 	btxpstart = CreateWindow(L"BUTTON", L"安装旧版Windows", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		125, 300, 120, 50, win3, (HMENU)xpstartbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -2404,7 +2416,14 @@ void Bak(){
 	EnableWindow(btnreboot, false);
 	WIMStruct* WIM;
 	int result;
-	result = wimlib_create_new_wim((wimlib_compression_type)ComboBox_GetCurSel(hcompcbox),&WIM);
+	int ct;
+	if (ComboBox_GetCurSel(hcompcbox) == 4) {
+		ct = 3;
+	}
+	else {
+		ct = ComboBox_GetCurSel(hcompcbox);
+	}
+	result = wimlib_create_new_wim((wimlib_compression_type)ct,&WIM);
 	if (result != 0) {
 		isloading = false;
 		MessageBox(hWnd, s2ws("无法准备WIM文件，原因："+ws2s((TCHAR*)wimlib_get_error_string((wimlib_error_code)result))).c_str(), 0, MB_ICONERROR);
@@ -2436,7 +2455,16 @@ void Bak(){
 		EnableWindow(btnwim, true);
 		EnableWindow(btnreboot, true);
 		return;
-	}result = wimlib_write(WIM, dirs, WIMLIB_ALL_IMAGES, NULL, NULL);
+	}
+	int flag;
+	if (ComboBox_GetCurSel(hcompcbox) == 4) {
+		flag = WIMLIB_WRITE_FLAG_SOLID;
+	}
+	else {
+		flag = NULL;
+
+	}
+	result = wimlib_write(WIM, dirs, WIMLIB_ALL_IMAGES, flag, NULL);
 	if (result != 0) {
 		wimlib_free(WIM);
 		isloading = false;
@@ -2611,7 +2639,7 @@ LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			_tcscpy_s(szFilename, sizeof(szFilename) / sizeof(TCHAR), cszFilename);
 			ofn.lpstrFile = szFilename;
 			ofn.nMaxFile = MAX_PATH;
-			ofn.lpstrFilter = _T("备份映像(.wim)\0*.wim\0\0");
+			ofn.lpstrFilter = _T("普通映像(.wim)\0*.wim\0高级压缩映像(.esd)\0*.esd\0\0");
 			ofn.lpstrDefExt = _T("wim");
 			ofn.lpstrTitle = _T("保存到...");
 			ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
@@ -2619,6 +2647,14 @@ LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			ofn.hwndOwner = hWnd;
 			GetSaveFileName(&ofn);
 			Edit_SetText(hsavepathedit,szFilename);
+			if (endsWithEsd(szFilename)) {
+				ComboBox_SetCurSel(hcompcbox,4);
+				EnableWindow(hcompcbox, FALSE);
+			}
+			else {
+				ComboBox_SetCurSel(hcompcbox, 2);
+				EnableWindow(hcompcbox, TRUE);
+			}
 			break;
 		}
 		case savestartbt:
