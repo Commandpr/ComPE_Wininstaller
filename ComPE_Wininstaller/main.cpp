@@ -1291,7 +1291,7 @@ LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 	ExitProcess(1);
 	return EXCEPTION_EXECUTE_HANDLER;
 }
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd) {
 	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
 	AllocConsole();    //为调用进程分配一个新的控制台
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
