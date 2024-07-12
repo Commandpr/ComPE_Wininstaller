@@ -816,7 +816,7 @@ void mountwimiso() {
 	DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG1), hWnd, ISOSunProc);
 	
 }
-void CreateUnattendXML(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand) {
+void CreateUnattendXML(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand, bool SkipOOBE) {
 	TiXmlDocument* tinyXmlDoc = new TiXmlDocument();
 	TiXmlDeclaration* tinyXmlDeclare = new TiXmlDeclaration("1.0", "utf-8", "");
 	tinyXmlDoc->LinkEndChild(tinyXmlDeclare);
@@ -995,6 +995,14 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	TiXmlText* hideEULAPageText = new TiXmlText("false");
 	hideEULAPage->LinkEndChild(hideEULAPageText);
 	oobe->LinkEndChild(hideEULAPage);
+	TiXmlElement* hideUserOOBEPage = new TiXmlElement("SkipUserOOBE");
+	TiXmlText* hideUserOOBEPageText = new TiXmlText(SkipOOBE ? "true" : "false");
+	hideUserOOBEPage->LinkEndChild(hideUserOOBEPageText);
+	oobe->LinkEndChild(hideUserOOBEPage);
+	TiXmlElement* hideMOOBEPage = new TiXmlElement("SkipMachineOOBE");
+	TiXmlText* hideMOOBEPageText = new TiXmlText(SkipOOBE ? "true" : "false");
+	hideMOOBEPage->LinkEndChild(hideMOOBEPageText);
+	oobe->LinkEndChild(hideMOOBEPage);
 	TiXmlElement* firstLogonCommands = new TiXmlElement("FirstLogonCommands");
 	componentShell->LinkEndChild(firstLogonCommands);
 	TiXmlElement* synchronousCommand = new TiXmlElement("SynchronousCommand");
@@ -2519,6 +2527,7 @@ LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		EnableWindow(GetDlgItem(hwnd, IDC_EDIT4), FALSE);
 		EnableWindow(GetDlgItem(hwnd, IDC_EDIT5), FALSE);
 		EnableWindow(GetDlgItem(hwnd, IDC_EDIT6), FALSE);
+		EnableWindow(GetDlgItem(hwnd, IDC_CHECK1), FALSE);
 		Button_SetCheck(GetDlgItem(hwnd,IDC_RADIO1),TRUE);
 		return TRUE;
 	case WM_COMMAND: {
@@ -2530,6 +2539,7 @@ LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT4), FALSE);
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT5), FALSE);
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT6), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_CHECK1), FALSE);
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT1), TRUE);
 			EnableWindow(GetDlgItem(hwnd, IDC_BUTTON1), TRUE);
 			return TRUE;
@@ -2540,6 +2550,7 @@ LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT5), TRUE);
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT6), TRUE);
 			EnableWindow(GetDlgItem(hwnd, IDC_EDIT1), FALSE);
+			EnableWindow(GetDlgItem(hwnd, IDC_CHECK1), TRUE);
 			EnableWindow(GetDlgItem(hwnd, IDC_BUTTON1), FALSE);
 			return TRUE;
 		case IDCANCEL:
@@ -2558,12 +2569,13 @@ LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT4), ActiveKey, MAX_PATH);
 				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT6), FstRun, MAX_PATH);
 				Edit_GetText(GetDlgItem(hwnd, IDC_EDIT5), PreRun, MAX_PATH);
+				bool Skiped = Button_GetCheck(GetDlgItem(hwnd, IDC_CHECK1));
 				wstring un = Username;
 				wstring pw = Password;
 				wstring ak = ActiveKey;
 				wstring fr = FstRun;
 				wstring pr = PreRun;
-				CreateUnattendXML(ws2s(un), ws2s(pw), ws2s(ak), ws2s(pr), ws2s(fr));
+				CreateUnattendXML(ws2s(un), ws2s(pw), ws2s(ak), ws2s(pr), ws2s(fr), Skiped);
 				TCHAR rundir[MAX_PATH] = { 0 };
 				GetCurrentDirectory(MAX_PATH, rundir);
 				string rd = ws2s(rundir);
