@@ -447,6 +447,7 @@ void CountSeconds() {
 		Sleep(1000);
 		nowtime += 1;
 	}
+
 }
 string loading = "正在创建文件结构...";
 wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progress_info* info, void* progctx)
@@ -456,7 +457,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			MoveWindow(barfw, 0, 427, 0, 14, TRUE);
 			break;
 		case WIMLIB_PROGRESS_MSG_EXTRACT_FILE_STRUCTURE: {
-			if (info->extract.current_file_count == 0) {
+			if (info->extract.current_file_count == 0 || info->extract.current_file_count == info->extract.end_file_count) {
 				nowtime = 0;
 			}
 			float f = (float)info->extract.current_file_count / (float)info->extract.end_file_count;
@@ -484,7 +485,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 		}
 		case WIMLIB_PROGRESS_MSG_EXTRACT_STREAMS:
 		{
-			if (info->extract.completed_bytes == 0) {
+			if (info->extract.completed_bytes <= 100) {
 				nowtime = 0;
 			}
 			float f = (float)info->extract.completed_bytes / (float)info->extract.total_bytes;
@@ -520,7 +521,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_WRITE_STREAMS: {
-			if (info->write_streams.completed_bytes == 0) {
+			if (info->write_streams.completed_bytes <= 10) {
 				nowtime = 0;
 			}
 			float f = (float)info->write_streams.completed_bytes / (float)info->write_streams.total_bytes;
@@ -548,7 +549,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			break;
 		default:
 		{
-			SetWindowText(protxt, L"正在进行操作...");
+			SetWindowText(protxt, NULL);
 			SetWindowTextA(protxt3, NULL);
 			break;
 		}
@@ -2389,9 +2390,11 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	return 0;
 }
 
-void Bak()
-{
+void Bak(){
 	isloading = true;
+	nowtime = 0;
+	thread t(CountSeconds);
+	t.detach();
 	TCHAR dirs[MAX_PATH] = { 0 };
 	Edit_GetText(hsavepathedit, dirs, MAX_PATH);
 	EnableWindow(win5, false);
@@ -2405,7 +2408,11 @@ void Bak()
 	if (result != 0) {
 		isloading = false;
 		MessageBox(hWnd, s2ws("无法准备WIM文件，原因："+ws2s((TCHAR*)wimlib_get_error_string((wimlib_error_code)result))).c_str(), 0, MB_ICONERROR);
-		EnableWindow(win2, true);
+		EnableWindow(win5, true);
+
+		SetWindowText(protxt, NULL);
+		SetWindowTextA(protxt3, NULL);
+
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
 		EnableWindow(btnwim, true);
@@ -2419,8 +2426,11 @@ void Bak()
 	if (result != 0) {
 		wimlib_free(WIM);
 		isloading = false;
+		SetWindowText(protxt, NULL);
+		SetWindowTextA(protxt3, NULL);
+
 		MessageBox(hWnd, s2ws("准备要备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(wimlib_get_error_string((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
-		EnableWindow(win2, true);
+		EnableWindow(win5, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
 		EnableWindow(btnwim, true);
@@ -2430,8 +2440,11 @@ void Bak()
 	if (result != 0) {
 		wimlib_free(WIM);
 		isloading = false;
+		SetWindowText(protxt, NULL);
+		SetWindowTextA(protxt3, NULL);
+
 		MessageBox(hWnd, s2ws("备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(wimlib_get_error_string((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
-		EnableWindow(win2, true);
+		EnableWindow(win5, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
 		EnableWindow(btnwim, true);
@@ -2442,7 +2455,9 @@ void Bak()
 	isloading = false;
 	MessageBox(hWnd, L"备份完成！", L"成功：", MB_ICONINFORMATION);
 	SetWindowText(protxt, NULL);
-	EnableWindow(win2, true);
+	SetWindowTextA(protxt3, NULL);
+
+	EnableWindow(win5, true);
 	EnableWindow(btnghost, true);
 	EnableWindow(btnxp, true);
 	EnableWindow(btnwim, true);
