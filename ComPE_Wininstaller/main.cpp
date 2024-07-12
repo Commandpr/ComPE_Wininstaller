@@ -992,7 +992,7 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	protectYourPC->LinkEndChild(protectYourPCText);
 	oobe->LinkEndChild(protectYourPC);
 	TiXmlElement* hideEULAPage = new TiXmlElement("HideEULAPage");
-	TiXmlText* hideEULAPageText = new TiXmlText("false");
+	TiXmlText* hideEULAPageText = new TiXmlText(SkipOOBE ? "true" : "false");
 	hideEULAPage->LinkEndChild(hideEULAPageText);
 	oobe->LinkEndChild(hideEULAPage);
 	TiXmlElement* hideUserOOBEPage = new TiXmlElement("SkipUserOOBE");
