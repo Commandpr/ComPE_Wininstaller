@@ -110,20 +110,24 @@ wstring s2ws(const string& s){
 	wstring result = pwchar;
 	return result;
 }
+
 bool isFileExists_ifstream(string& name) {
 	ifstream f(name.c_str());
 	return f.good();
 }
 bool endsWithEsd(const TCHAR* str) {
-	const TCHAR* suffix = _T(".esd");
-	size_t strLen = _tcslen(str);
-	size_t suffixLen = _tcslen(suffix);
+	const TCHAR* esdLower = _T(".esd");
+	const TCHAR* esdUpper = _T(".ESD");
+	size_t len = _tcslen(str);
+	size_t esdLen = _tcslen(esdLower);
 
-	if (strLen < suffixLen) {
+	if (len < esdLen) {
 		return false;
 	}
 
-	return _tcscmp(str + strLen - suffixLen, suffix) == 0;
+	const TCHAR* end = str + len - esdLen;
+
+	return (_tcsicmp(end, esdLower) == 0 || _tcsicmp(end, esdUpper) == 0);
 }
 bool is_folder_path(string& path) {
 	// Check for existence.
@@ -1273,8 +1277,22 @@ void GetConfigJson() {
 	return ;
 }
 */
-
+LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
+	DeleteMountedEFI();
+	string unmountcmd = ".\\OSFMount.com -D -m " + MountedDisk;
+	system(unmountcmd.c_str());
+	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
+	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
+	SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
+	DWORD Error = pExceptionInfo->ExceptionRecord->ExceptionCode;
+	wstring em = to_wstring(Error);;
+	wstring ErrorInfo = L"发生严重异常！无法继续执行程序，请将以下错误代码发给程序作者，按下“确定”退出程序。\n错误代码：" + em;
+	MessageBox(hWnd, ErrorInfo.c_str(), L"错误：", MB_ICONERROR | MB_OK);
+	ExitProcess(1);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
 	AllocConsole();    //为调用进程分配一个新的控制台
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
 	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
