@@ -21,7 +21,7 @@
 #include <Shlobj.h>
 #include "wimlib.h"
 #include "dismapi.h"
-//#include "json/json.h"
+#include "json/json.h"
 #include "tinyxml.h"
 #include "resource.h"
 #pragma comment(lib,"libwim.lib")
@@ -92,8 +92,93 @@ LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 using namespace std;
 string MountedDisk = "";
+bool isInstalled = true;
 vector<string> MountEFI;
-string ws2s(const wstring& ws){
+const char* WIMLIB_ERROR_STRING_OF_CHINESE = R"({
+"0": "成功",
+"1": "已锁定",
+"2": "解压错误",
+"6": "FUSE错误",
+"8": "没有匹配项",
+"10": "图像计数错误",
+"11": "图像名称冲突",
+"12": "权限不足",
+"13": "完整性错误",
+"14": "无效的捕获配置",
+"15": "无效的块大小",
+"16": "无效的压缩类型",
+"17": "无效的头部",
+"18": "无效的图像",
+"19": "无效的完整性表",
+"20": "无效的查找表条目",
+"21": "无效的元数据资源",
+"23": "无效的覆盖",
+"24": "无效的参数",
+"25": "无效的部分编号",
+"26": "无效的可管道WIM",
+"27": "无效的重解析数据",
+"28": "无效的资源哈希",
+"30": "无效的UTF-16字符串",
+"31": "无效的UTF-8字符串",
+"32": "是目录",
+"33": "是拆分的WIM",
+"35": "链接错误",
+"36": "未找到元数据",
+"37": "创建目录错误",
+"38": "消息队列错误",
+"39": "内存不足",
+"40": "不是目录",
+"41": "目录不为空",
+"42": "不是常规文件",
+"43": "不是WIM文件",
+"44": "不可管道",
+"45": "没有文件名",
+"46": "NTFS-3G错误",
+"47": "打开错误",
+"48": "打开目录错误",
+"49": "路径不存在",
+"50": "读取错误",
+"51": "读取链接错误",
+"52": "重命名错误",
+"54": "重解析点修复失败",
+"55": "未找到资源",
+"56": "资源顺序错误",
+"57": "设置属性错误",
+"58": "设置重解析数据错误",
+"59": "设置安全性错误",
+"60": "设置短名称错误",
+"61": "设置时间戳错误",
+"62": "拆分无效",
+"63": "状态错误",
+"65": "文件意外结束",
+"66": "Unicode字符串不可表示",
+"67": "未知版本",
+"68": "不支持",
+"69": "不支持的文件",
+"71": "WIM是只读的",
+"72": "写入错误",
+"73": "XML错误",
+"74": "WIM已加密",
+"75": "WIMBOOT错误",
+"76": "进度被中止",
+"77": "未知的进度状态",
+"78": "创建节点错误",
+"79": "挂载的图像正忙",
+"80": "不是挂载点",
+"81": "不允许卸载",
+"82": "FVE锁定卷",
+"83": "无法读取捕获配置",
+"84": "WIM不完整",
+"85": "无法压缩",
+"86": "图像有多个引用",
+"87": "重复的导出图像",
+"88": "检测到并发修改",
+"89": "快照失败",
+"90": "无效的扩展属性",
+"91": "设置扩展属性错误"
+})";
+
+string ws2s(const wstring& ws) {
 	try {
 		_bstr_t t = ws.c_str();
 		char* pchar = (char*)t;
@@ -104,12 +189,40 @@ string ws2s(const wstring& ws){
 		return "";
 	}
 }
-wstring s2ws(const string& s){
+wstring s2ws(const string& s) {
 	_bstr_t t = s.c_str();
 	wchar_t* pwchar = (wchar_t*)t;
 	wstring result = pwchar;
 	return result;
 }
+
+void InstalledImDisk() {
+	int result = system("imdisk --version");
+	if (result != 0) {
+		isInstalled = false;
+		system(".\\ImdiskPack\\install.cmd");
+		return;
+	}
+	isInstalled = true;
+}
+
+void UninstalledImDisk() {
+	if (!isInstalled) {
+		system(".\\ImdiskPack\\uninstall_imdisk.cmd");
+		return;
+	}
+}
+
+const wchar_t* GetWimErrorString(int ErrCode) {
+	Json::Value value;
+	Json::Reader reader;
+	reader.parse(WIMLIB_ERROR_STRING_OF_CHINESE, value);
+	string s = value[to_string(ErrCode)].asString();
+	wstring ws = s2ws(s);
+	const wchar_t* w = ws.c_str();
+	return w;
+}
+
 
 bool isFileExists_ifstream(string& name) {
 	ifstream f(name.c_str());
@@ -627,7 +740,7 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 	_tcscpy_s(wimpath, sizeof(wimpath) / sizeof(TCHAR), wimstr);
 	result = wimlib_open_wim(wimpath, 0, &WIMFile);
 	if (result != 0) {
-		wstring err = wimlib_get_error_string((wimlib_error_code)result);
+		wstring err = GetWimErrorString(result);
 		MessageBox(hWnd, (L"无法打开WIM！原因：" + err).c_str(), NULL, MB_ICONERROR);
 		SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 		return;
@@ -1286,8 +1399,9 @@ void GetConfigJson() {
 */
 LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 	DeleteMountedEFI();
-	string unmountcmd = ".\\OSFMount.com -D -m " + MountedDisk;
+	string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
 	system(unmountcmd.c_str());
+	UninstalledImDisk();
 	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 	SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
@@ -1302,6 +1416,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
 	AllocConsole();    //为调用进程分配一个新的控制台
 	ShowWindow(GetConsoleWindow(), SW_HIDE);
+	InstalledImDisk();
 	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 	//SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
@@ -2016,7 +2131,7 @@ void writewim() {
 	if (ec != 0) {
 		wimlib_free(WIM);
 		isloading = false;
-		MessageBox(hWnd, s2ws("应用WIM/ESD映像的时候发生错误，错误原因：" + ws2s((TCHAR*)(wimlib_get_error_string((wimlib_error_code)ec)))).c_str(), 0, MB_ICONERROR);
+		MessageBox(hWnd, s2ws("应用WIM/ESD映像的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)ec)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win2, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
@@ -2452,7 +2567,7 @@ void Bak(){
 	result = wimlib_create_new_wim((wimlib_compression_type)ct,&WIM);
 	if (result != 0) {
 		isloading = false;
-		MessageBox(hWnd, s2ws("无法准备WIM文件，原因："+ws2s((TCHAR*)wimlib_get_error_string((wimlib_error_code)result))).c_str(), 0, MB_ICONERROR);
+		MessageBox(hWnd, s2ws("无法准备WIM文件，原因："+ws2s((TCHAR*)GetWimErrorString((wimlib_error_code)result))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win5, true);
 
 		SetWindowText(protxt, NULL);
@@ -2474,7 +2589,7 @@ void Bak(){
 		SetWindowText(protxt, NULL);
 		SetWindowTextA(protxt3, NULL);
 
-		MessageBox(hWnd, s2ws("准备要备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(wimlib_get_error_string((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
+		MessageBox(hWnd, s2ws("准备要备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win5, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
@@ -2497,7 +2612,7 @@ void Bak(){
 		SetWindowText(protxt, NULL);
 		SetWindowTextA(protxt3, NULL);
 
-		MessageBox(hWnd, s2ws("备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(wimlib_get_error_string((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
+		MessageBox(hWnd, s2ws("备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win5, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
@@ -2748,6 +2863,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendMessage(hTabCtrl, TCM_SETCURSEL, 4, 0);
 			EnableWindow(btnwim, true);
 			EnableWindow(btnghost, true);
+			EnableWindow(hTabCtrl, TRUE);
 			EnableWindow(btnxp, true);
 			EnableWindow(btndisk, false);
 			SetWindowShow();
@@ -2758,6 +2874,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendMessage(hTabCtrl, TCM_SETCURSEL, 2, 0);
 			EnableWindow(btnwim, true);
 			EnableWindow(btnghost, true);
+			EnableWindow(hTabCtrl, TRUE);
 			EnableWindow(btnxp, false);
 			EnableWindow(btndisk, true);
 			SetWindowShow();
@@ -2767,6 +2884,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			SendMessage(hTabCtrl, TCM_SETCURSEL, 1, 0);
 			EnableWindow(btnwim, false);
+			EnableWindow(hTabCtrl, TRUE);
 			EnableWindow(btnghost, true);
 			EnableWindow(btnxp, true);
 			EnableWindow(btndisk, true);
@@ -2776,6 +2894,8 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case ghobt:
 		{
 			SendMessage(hTabCtrl, TCM_SETCURSEL, 0, 0);
+			EnableWindow(hTabCtrl, TRUE);
+
 			EnableWindow(btnwim, true);
 			EnableWindow(btnghost, false);
 			EnableWindow(btnxp, true);
@@ -2795,6 +2915,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case logobt:
 			SendMessage(hTabCtrl, TCM_SETCURSEL, 3, 0);
+			EnableWindow(hTabCtrl, FALSE);
 			EnableWindow(btnwim, true);
 			EnableWindow(btnghost, true);
 			EnableWindow(btnxp, true);
@@ -2814,6 +2935,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		DeleteMountedEFI();
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
 		system(unmountcmd.c_str());
+		UninstalledImDisk();
 		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 		SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
