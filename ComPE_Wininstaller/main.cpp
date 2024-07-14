@@ -688,8 +688,6 @@ string isopath;
 int imgtype;
 vector<string> imglist;
 void mountwimiso() {
-	//SendMessage(hwlst, CB_RESETCONTENT, 0, 0);
-	
 	EnableWindow(win2, false);
 	EnableWindow(btndisk,false);
 	EnableWindow(btnghost, false);
