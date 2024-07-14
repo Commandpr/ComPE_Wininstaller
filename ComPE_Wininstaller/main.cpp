@@ -695,7 +695,7 @@ void mountwimiso() {
 	EnableWindow(btnreboot, false);
 	isloading = true;
 	SetWindowText(protxt, s2ws("取消上次挂载...").c_str());
-	string unmountcmd = ".\\imdisk -D -m "+MountedDisk;
+	string unmountcmd = "imdisk -D -m "+MountedDisk;
 	system(unmountcmd.c_str());
 	SetWindowText(protxt, L"准备挂载...");
 	char chPath = 'A';
@@ -722,7 +722,7 @@ void mountwimiso() {
 		return;
 	}
 	SetWindowText(protxt, L"挂载ISO镜像...");
-	string mountcmd = ".\\imdisk -a -m "+MDisk+" -f \"" + isopath + "\"";
+	string mountcmd = "imdisk -a -m "+MDisk+" -f \"" + isopath + "\"";
 	int status = system(mountcmd.c_str());
 	if (status != 0) {
 		isloading = false;
@@ -770,7 +770,7 @@ void mountwimiso() {
 			EnableWindow(btnreboot, true);
 			SetWindowText(protxt, NULL);
 			MessageBox(hWnd, L"ISO不包含映像，请检查选择的ISO是否正确", NULL, MB_ICONERROR);
-			string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
+			string unmountcmd = "imdisk -D -m " + MountedDisk;
 			system(unmountcmd.c_str());
 			return;
 		}
@@ -784,7 +784,7 @@ void mountwimiso() {
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
 		MessageBoxA(hWnd, "无法搜索文件！\n这可能是镜像的分区格式不兼容，Windows无法识别这种分区格式。\n请尝试选择其他的ISO镜像", NULL, MB_ICONERROR);
-		string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
+		string unmountcmd = "imdisk -D -m " + MountedDisk;
 		system(unmountcmd.c_str());
 		return;
 	}
@@ -2812,7 +2812,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 	{
 		DeleteMountedEFI();
-		string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
+		string unmountcmd = "imdisk -D -m " + MountedDisk;
 		system(unmountcmd.c_str());
 		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
