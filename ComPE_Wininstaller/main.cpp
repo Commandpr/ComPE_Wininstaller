@@ -627,7 +627,8 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 	_tcscpy_s(wimpath, sizeof(wimpath) / sizeof(TCHAR), wimstr);
 	result = wimlib_open_wim(wimpath, 0, &WIMFile);
 	if (result != 0) {
-		ComboBox_AddString(hWndComboBox4, wimlib_get_error_string((wimlib_error_code)result));
+		wstring err = wimlib_get_error_string((wimlib_error_code)result);
+		MessageBox(hWnd, (L"无法打开WIM！原因：" + err).c_str(), NULL, MB_ICONERROR);
 		SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 		return;
 	}
@@ -2126,9 +2127,10 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						t.detach();
 						break;
 					}
+					Edit_SetText(edit2, file);
+					GetWimSysInfo(file);
 				}
-				Edit_SetText(edit2, file);
-				GetWimSysInfo(file);
+				
 				break;
 			}
 			catch (exception) {
