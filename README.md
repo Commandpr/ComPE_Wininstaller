@@ -1,6 +1,6 @@
 # ComPE Windows 安装器
 
-本程序采用C++制作，使用 Windows API库和WimLib库（非Wimlib-ImageX.exe），并少量使用Python语言编写，程序可以对Ghost映像，WIM/ESD映像和NT5.x的早期系统进行安装。
+本程序采用C++制作，使用 Windows API库和WimLib库（非Wimlib-ImageX.exe），并少量使用易语言编写，程序可以对Ghost映像，WIM/ESD映像和NT5.x的早期系统进行安装。
 
 程序使用官方的Ghost程序命令行实现Ghost映像的还原，可以对分区和磁盘进行操作，选择指定的Ghost映像后，选择目标，就可以执行了。
 
