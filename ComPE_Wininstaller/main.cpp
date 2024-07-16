@@ -996,19 +996,21 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	componentMWD->SetAttribute("language", "neutral");
 	componentMWD->SetAttribute("versionScope", "nonSxS");
 	settingssp->LinkEndChild(componentMWD);
-	TiXmlElement* runSync = new TiXmlElement("RunSynchronous");
-	componentMWD->LinkEndChild(runSync);
-	TiXmlElement* runSyncCommand = new TiXmlElement("RunSynchronousCommand");
-	runSyncCommand->SetAttribute("wcm:action", "add");
-	runSync->LinkEndChild(runSyncCommand);
-	TiXmlElement* order = new TiXmlElement("Order");
-	TiXmlText* orderText = new TiXmlText("1");
-	order->LinkEndChild(orderText);
-	runSyncCommand->LinkEndChild(order);
-	TiXmlElement* path = new TiXmlElement("Path");
-	TiXmlText* pathText = new TiXmlText(SysprepCommand.c_str());
-	path->LinkEndChild(pathText);
-	runSyncCommand->LinkEndChild(path);
+	if (SysprepCommand != "") {
+		TiXmlElement* runSync = new TiXmlElement("RunSynchronous");
+		componentMWD->LinkEndChild(runSync);
+		TiXmlElement* runSyncCommand = new TiXmlElement("RunSynchronousCommand");
+		runSyncCommand->SetAttribute("wcm:action", "add");
+		runSync->LinkEndChild(runSyncCommand);
+		TiXmlElement* order = new TiXmlElement("Order");
+		TiXmlText* orderText = new TiXmlText("1");
+		order->LinkEndChild(orderText);
+		runSyncCommand->LinkEndChild(order);
+		TiXmlElement* path = new TiXmlElement("Path");
+		TiXmlText* pathText = new TiXmlText(SysprepCommand.c_str());
+		path->LinkEndChild(pathText);
+		runSyncCommand->LinkEndChild(path);
+	}
 	TiXmlElement* Settingas = new TiXmlElement("Setting");
 	Settingas->SetAttribute("pass", "auditSystem");
 	Unattend->LinkEndChild(Settingas);
@@ -1056,7 +1058,7 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	localAccount->SetAttribute("wcm:action", "add");
 	localAccounts->LinkEndChild(localAccount);
 	TiXmlElement* name = new TiXmlElement("Name");
-	TiXmlText* nameText = new TiXmlText("Admin");
+	TiXmlText* nameText = new TiXmlText(Username.c_str());
 	name->LinkEndChild(nameText);
 	localAccount->LinkEndChild(name);
 	TiXmlElement* group = new TiXmlElement("Group");
@@ -1066,7 +1068,7 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	TiXmlElement* password = new TiXmlElement("Password");
 	localAccount->LinkEndChild(password);
 	TiXmlElement* value = new TiXmlElement("Value");
-	TiXmlText* valueText = new TiXmlText("");
+	TiXmlText* valueText = new TiXmlText(Password.c_str());
 	value->LinkEndChild(valueText);
 	password->LinkEndChild(value);
 	TiXmlElement* plainText = new TiXmlElement("PlainText");
@@ -1115,19 +1117,21 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 	TiXmlText* hideMOOBEPageText = new TiXmlText(SkipOOBE ? "true" : "false");
 	hideMOOBEPage->LinkEndChild(hideMOOBEPageText);
 	oobe->LinkEndChild(hideMOOBEPage);
-	TiXmlElement* firstLogonCommands = new TiXmlElement("FirstLogonCommands");
-	componentShell->LinkEndChild(firstLogonCommands);
-	TiXmlElement* synchronousCommand = new TiXmlElement("SynchronousCommand");
-	synchronousCommand->SetAttribute("wcm:action", "add");
-	firstLogonCommands->LinkEndChild(synchronousCommand);
-	TiXmlElement* order2 = new TiXmlElement("Order");
-	TiXmlText* orderText2 = new TiXmlText("1");
-	order2->LinkEndChild(orderText2);
-	synchronousCommand->LinkEndChild(order2);
-	TiXmlElement* commandLine = new TiXmlElement("CommandLine");
-	TiXmlText* commandLineText = new TiXmlText(FirstLogonCommand.c_str());
-	commandLine->LinkEndChild(commandLineText);
-	synchronousCommand->LinkEndChild(commandLine);
+	if (FirstLogonCommand != "") {
+		TiXmlElement* firstLogonCommands = new TiXmlElement("FirstLogonCommands");
+		componentShell->LinkEndChild(firstLogonCommands);
+		TiXmlElement* synchronousCommand = new TiXmlElement("SynchronousCommand");
+		synchronousCommand->SetAttribute("wcm:action", "add");
+		firstLogonCommands->LinkEndChild(synchronousCommand);
+		TiXmlElement* order2 = new TiXmlElement("Order");
+		TiXmlText* orderText2 = new TiXmlText("1");
+		order2->LinkEndChild(orderText2);
+		synchronousCommand->LinkEndChild(order2);
+		TiXmlElement* commandLine = new TiXmlElement("CommandLine");
+		TiXmlText* commandLineText = new TiXmlText(FirstLogonCommand.c_str());
+		commandLine->LinkEndChild(commandLineText);
+		synchronousCommand->LinkEndChild(commandLine);
+	}
 	tinyXmlDoc->SaveFile(".\\Unattend.xml");
 }
 
