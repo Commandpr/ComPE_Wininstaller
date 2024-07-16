@@ -153,9 +153,9 @@
     <ResourceCompile Include="ComPE_Wininstaller1.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="C:\Users\74575\Desktop\compe.ico" />
     <Image Include="C:\Users\Commandpr\Desktop\COMPE.bmp" />
     <Image Include="COMPE.bmp" />
+    <Image Include="compe.ico" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Black.ttf" />
