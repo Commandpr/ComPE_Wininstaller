@@ -2143,10 +2143,8 @@ void writewim() {
 	TCHAR uad[MAX_PATH] = { 0 };
 	Edit_GetText(edit3, uad, MAX_PATH);
 	string uadfile = ws2s(uad).c_str();
-	if (isFileExists_ifstream(uadfile)) {
-		CreateDirectoryA((ws2s(tar) + "Windows\\Panther").c_str(),NULL);
-		CopyFile(uad, s2ws(ws2s(tar) + "Windows\\Panther\\unattend.xml").c_str(), false);
-	}
+	CreateDirectoryA((ws2s(tar) + "Windows\\Panther").c_str(),NULL);
+	CopyFile(uad, s2ws(ws2s(tar) + "Windows\\Panther\\unattend.xml").c_str(), false);
 	//
 	SetWindowText(protxt, L"创建引导...");
 	TCHAR boot[MAX_PATH] = { 0 };
