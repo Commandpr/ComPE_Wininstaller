@@ -474,6 +474,9 @@ void DeleteMountedEFI() {
 	}
 }
 void SetAllVolumeMountPoint() {
+	if(system("pecmd show") == 0){
+		return;
+	}
 	DeleteMountedEFI();
 	char szVolumePathName[MAX_PATH] = { 0 };
 	HANDLE hFind = INVALID_HANDLE_VALUE;
