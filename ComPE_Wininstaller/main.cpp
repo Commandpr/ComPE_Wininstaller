@@ -706,7 +706,7 @@ wstring unicode_to_wstring(unsigned int code) {
 void loading_anim() {
 	while (true) {
 		for (unsigned int i = 0xE100; i <= 0xE176; i++) {
-			Sleep(20);
+			Sleep(40);
 			if (!isloading) {
 				SetWindowText(protxt2, NULL);
 				EnableWindow(btnlogo, TRUE);
