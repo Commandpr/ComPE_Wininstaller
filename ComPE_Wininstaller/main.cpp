@@ -785,12 +785,20 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 	}
 	SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
+std::string toUpperCase(const std::string& str) {
+	std::string upperCaseStr;
+	for (char c : str) {
+		// 使用std::toupper函数将字符转换为大写
+		upperCaseStr += std::toupper(c);
+	}
+	return upperCaseStr;
+}
 vector<string> findFilesWithExtensions(const string& directoryPath, const vector<string>& extensions) {
 	vector<string> foundFiles;
 	for (const auto& entry : filesystem::recursive_directory_iterator(directoryPath+"\\")) {
 		if (filesystem::is_regular_file(entry)) {
 			for (const auto& ext : extensions) {
-				if (entry.path().extension() == ext) {
+				if (toUpperCase(entry.path().extension().string()) == ext) {
 					foundFiles.push_back(entry.path().string());
 					break;
 				}
@@ -857,11 +865,11 @@ void mountwimiso() {
 	vector<string> extensions;
 	switch (imgtype) {
 	case 0: {
-		extensions = { ".wim", ".esd", ".swm" ,".WIM",".ESD",".SWM" };
+		extensions = {".WIM",".ESD",".SWM" };
 		break;
 	}
 	case 1: {
-		extensions = { ".gho",".GHO" };
+		extensions = { ".GHO" };
 		break;
 	}
 	case 2: {
@@ -1160,15 +1168,19 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 		SetWindowText(protxt, NULL);
 		return 1;
 	}
-	hr = DismAddDriver(Session, DriverPath, FALSE);
-	if (FAILED(hr)) {
-		DismGetLastErrorMessage(&ErrStr);
-		MessageBoxA(hWnd, ("安装驱动失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
-		DismDelete(ErrStr);
-		DismCloseSession(Session);
-		DismShutdown();
-		SetWindowText(protxt, NULL);
-		return 1;
+	vector<string> extensions = {".INF" };
+	vector<string> driverList = findFilesWithExtensions(ws2s(DriverPath), extensions);
+	for (string driver : driverList) {
+		hr = DismAddDriver(Session, s2ws(driver).c_str(), FALSE);
+		if (FAILED(hr)) {
+			DismGetLastErrorMessage(&ErrStr);
+			MessageBoxA(hWnd, ("安装驱动失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
+			DismDelete(ErrStr);
+			DismCloseSession(Session);
+			DismShutdown();
+			SetWindowText(protxt, NULL);
+			return 1;
+		}
 	}
 	DismCloseSession(Session);
 	DismShutdown();
@@ -1820,7 +1832,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		NULL);
 	//SetWindowPos(barfw, NULL, 0, 425, 100, 15, SWP_NOMOVE);
 	SendMessage(btfile2, WM_SETFONT, (WPARAM)hFont2, 1);
-	HWND btfiled = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+	HWND btfiled = CreateWindow(L"BUTTON", L"选择目录", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 218, 64, 22, win2, (HMENU)DRIVELOADBT, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	HWND btDownload = CreateWindow(L"BUTTON", L"下载映像", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
@@ -2174,7 +2186,9 @@ void writewim() {
 	
 	TCHAR driverpath[MAX_PATH] = { 0 };
 	Edit_GetText(editDrive, driverpath, MAX_PATH);
-	if (isFileExists_ifstream(ws2s(driverpath))) {
+	vector<string> extensions = { ".INF" };
+	vector<string> driverList = findFilesWithExtensions(ws2s(driverpath), extensions);
+	if (!driverList.empty()) {
 		SetWindowText(protxt, L"安装驱动...");
 		if (InstallDriver(tar, driverpath) != 0) {
 			isloading = false;
@@ -2298,7 +2312,20 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case DRIVELOADBT:
 		{
-			Edit_SetText(editDrive, GetGhoFile(L"驱动安装文件(*.inf)\0*.inf\0\0", hwnd));
+			TCHAR szBuffer[MAX_PATH] = { 0 };
+			BROWSEINFO bi;
+			ZeroMemory(&bi, sizeof(BROWSEINFO));
+			bi.hwndOwner = NULL;
+			bi.pszDisplayName = szBuffer;
+			bi.lpszTitle = _T("选择包含驱动安装文件（*.inf）的目录:");
+			bi.ulFlags = BIF_RETURNFSANCESTORS;
+			LPITEMIDLIST idl = SHBrowseForFolder(&bi);
+			if (NULL == idl)
+			{
+				break;
+			}
+			SHGetPathFromIDList(idl, szBuffer);
+			Edit_SetText(editDrive, szBuffer);
 			break;
 		}
 		case RUNIMGDOWNLOAD:
