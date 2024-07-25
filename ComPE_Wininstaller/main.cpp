@@ -24,6 +24,7 @@
 #include "json/json.h"
 #include "tinyxml.h"
 #include "resource.h"
+#include "SecureBootAndTPMCheck.h"
 #pragma comment(lib,"libwim.lib")
 #pragma comment(lib,"dismapi.lib")
 
@@ -1927,9 +1928,17 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		fm = GetFirmware();
 		//MountEFIPartition();
 	}
+
 	thread t(loading_anim);
 	t.detach();
-	HWND firm = CreateWindow(L"STATIC", s2ws("当前启动类型：" + fm).c_str(), WS_VISIBLE | WS_CHILD, 490, 404, 200, 20, hwnd, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+	bool secureBootEnabled = IsSecureBootEnabled();
+	bool tpm2Enabled = IsTPM2Enabled();
+	std::string secureBootEnabledstatus = secureBootEnabled ? "安全启动" : "非安全启动";
+	std::string tpm2Enabledstatus = tpm2Enabled ? "已开启" : "未开启";
+	HWND tpm = CreateWindow(L"STATIC", s2ws("TPM状态：" + tpm2Enabledstatus).c_str(), WS_VISIBLE | WS_CHILD, 320, 404, 200, 20, hwnd, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	SendMessage(tpm, WM_SETFONT, (WPARAM)hFont2, 1);
+	HWND firm = CreateWindow(L"STATIC", s2ws("当前启动类型：" + fm + secureBootEnabledstatus).c_str(), WS_VISIBLE | WS_CHILD, 438, 404, 200, 20, hwnd, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(firm, WM_SETFONT, (WPARAM)hFont2, 1);
 	//HWND btre3 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
