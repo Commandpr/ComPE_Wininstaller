@@ -36,6 +36,9 @@
     <ClCompile Include="SecureBootAndTPMCheck.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="GetDisksList.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -45,6 +48,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="SecureBootAndTPMCheck.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="getdiskslist.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -63,13 +69,5 @@
     <Image Include="compe.ico">
       <Filter>资源文件</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Black.ttf" />
-    <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Bold.ttf" />
-    <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Light.ttf" />
-    <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Medium.ttf" />
-    <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Regular.ttf" />
-    <Font Include="C:\Users\Commandpr\Desktop\HarmonyOS_Sans_SC\HarmonyOS_Sans_SC_Thin.ttf" />
   </ItemGroup>
 </Project>

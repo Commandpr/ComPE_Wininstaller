@@ -5,6 +5,7 @@
 #include <io.h>
 #include <windowsx.h>
 #include <tchar.h>
+
 #include <stdio.h>
 #include <iostream>
 #include <string>
@@ -25,6 +26,7 @@
 #include "tinyxml.h"
 #include "resource.h"
 #include "SecureBootAndTPMCheck.h"
+#include "getdiskslist.h"
 #pragma comment(lib,"libwim.lib")
 #pragma comment(lib,"dismapi.lib")
 
@@ -178,7 +180,38 @@ const char* WIMLIB_ERROR_STRING_OF_CHINESE = R"({
 "90": "无效的扩展属性",
 "91": "设置扩展属性错误"
 })";
+DWORD RunMyExec(const char* cmd) {
+	STARTUPINFOA si;
+	PROCESS_INFORMATION pi;
 
+	// 初始化 STARTUPINFO 结构体
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	si.dwFlags = STARTF_USESHOWWINDOW; // 不显示窗口
+
+	// 初始化 PROCESS_INFORMATION 结构体
+	ZeroMemory(&pi, sizeof(pi));
+
+	// 执行程序
+	if (!CreateProcessA(NULL, (LPSTR)cmd, NULL, NULL, FALSE,
+		CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+		return 1; // 返回错误代码
+	}
+
+	// 等待程序执行完毕
+	WaitForSingleObject(pi.hProcess, INFINITE);
+
+	// 获取程序退出代码
+	DWORD exitCode;
+	GetExitCodeProcess(pi.hProcess, &exitCode);
+
+	// 关闭进程和线程句柄
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+	// 返回程序退出代码
+	return exitCode;
+}
 string ws2s(const wstring& ws) {
 	try {
 		_bstr_t t = ws.c_str();
@@ -198,10 +231,10 @@ wstring s2ws(const string& s) {
 }
 
 void InstalledImDisk() {
-	int result = system("imdisk --version");
+	int result = RunMyExec("imdisk --version");
 	if (result != 0) {
 		isInstalled = false;
-		system(".\\ImdiskPack\\install.cmd");
+		RunMyExec(".\\ImdiskPack\\install.cmd");
 		return;
 	}
 	isInstalled = true;
@@ -209,7 +242,7 @@ void InstalledImDisk() {
 
 void UninstalledImDisk() {
 	if (!isInstalled) {
-		system(".\\ImdiskPack\\uninstall_imdisk.cmd");
+		RunMyExec(".\\ImdiskPack\\uninstall_imdisk.cmd");
 		return;
 	}
 }
@@ -475,7 +508,7 @@ void DeleteMountedEFI() {
 	}
 }
 void SetAllVolumeMountPoint() {
-	if(system("pecmd show") == 0){
+	if(RunMyExec("pecmd show") == 0){
 		return;
 	}
 	DeleteMountedEFI();
@@ -541,26 +574,6 @@ void AddDiskList(HWND cb) {
 	SendMessage(cb, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 }
 
-string exec(const char* cmd) {
-	// 创建一个管道，用于读取命令的输出
-	FILE* pipe = _popen(cmd, "r");
-	// 如果管道创建失败，返回空字符串
-	if (!pipe) return "";
-	// 创建一个字符串变量，用于存储输出
-	string result = "";
-	// 创建一个字符数组，用于读取每一行的输出
-	char buffer[128];
-	// 循环读取管道中的数据，直到结束
-	while (!feof(pipe)) {
-		// 如果能够从管道中读取一行数据，将其追加到结果字符串中
-		if (fgets(buffer, 128, pipe) != NULL)
-			result += buffer;
-	}
-	// 关闭管道
-	_pclose(pipe);
-	// 返回结果字符串
-	return result;
-}
 string convertSecondsToTime(long long seconds) {
 	long long hours = seconds / 3600;
 	long long minutes = (seconds % 3600) / 60;
@@ -721,21 +734,6 @@ void loading_anim() {
 		}
 	}
 }
-void GetDrivelist() {
-	SendMessage(hWndComboBox, CB_RESETCONTENT, 0, 0);
-	string input = exec(".\\GetDriveList.exe");
-	getline(cin, input);
-	// 创建一个字符串流对象，用于处理input
-	stringstream ss(input);
-	// 创建一个string变量，用于存储每一段分割后的字符串
-	string segment;
-	// 循环从字符串流中读取数据，以换行符为分隔符
-	while (getline(ss, segment, '\n')) {
-		// 输出每一段分割后的字符串
-		SendMessage((hWndComboBox), 0x0143, 0L, (LPARAM)(LPCTSTR)s2ws(segment).c_str());
-	}
-	SendMessage(hWndComboBox, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
-}
 void GetWimSysInfo(const TCHAR* wimstr) {
 	SendMessage(hWndComboBox4, CB_RESETCONTENT, 0, 0);
 	WIMStruct* WIMFile;
@@ -821,7 +819,7 @@ void mountwimiso() {
 	isloading = true;
 	SetWindowText(protxt, s2ws("取消上次挂载...").c_str());
 	string unmountcmd = "imdisk -D -m "+MountedDisk;
-	system(unmountcmd.c_str());
+	RunMyExec(unmountcmd.c_str());
 	SetWindowText(protxt, L"准备挂载...");
 	char chPath = 'A';
 	string MDisk = "";
@@ -848,7 +846,7 @@ void mountwimiso() {
 	}
 	SetWindowText(protxt, L"挂载ISO镜像...");
 	string mountcmd = "imdisk -a -m "+MDisk+" -f \"" + isopath + "\"";
-	int status = system(mountcmd.c_str());
+	int status = RunMyExec(mountcmd.c_str());
 	if (status != 0) {
 		isloading = false;
 		EnableWindow(win2, true);
@@ -896,7 +894,7 @@ void mountwimiso() {
 			SetWindowText(protxt, NULL);
 			MessageBox(hWnd, L"ISO不包含映像，请检查选择的ISO是否正确", NULL, MB_ICONERROR);
 			string unmountcmd = "imdisk -D -m " + MountedDisk;
-			system(unmountcmd.c_str());
+			RunMyExec(unmountcmd.c_str());
 			return;
 		}
 	}
@@ -910,7 +908,7 @@ void mountwimiso() {
 		SetWindowText(protxt, NULL);
 		MessageBoxA(hWnd, "无法搜索文件！\n这可能是镜像的分区格式不兼容，Windows无法识别这种分区格式。\n请尝试选择其他的ISO镜像", NULL, MB_ICONERROR);
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
-		system(unmountcmd.c_str());
+		RunMyExec(unmountcmd.c_str());
 		return;
 	}
 	if (foundFiles.size() == 1) {
@@ -1335,7 +1333,7 @@ void Prep_WinPE(int mode, string path, string disk, string unattend, string boot
 	}
 	for (string cmd : cmds) {
 		string exec = ".\\bcdedit.exe " + cmd;
-		system(exec.c_str());
+		RunMyExec(exec.c_str());
 	}
 	
 	for (int a = 0; a <= 10; a++) {
@@ -1420,7 +1418,7 @@ void GetConfigJson() {
 LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 	DeleteMountedEFI();
 	string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
-	system(unmountcmd.c_str());
+	RunMyExec(unmountcmd.c_str());
 	UninstalledImDisk();
 	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
@@ -1434,8 +1432,6 @@ LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 }
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd) {
 	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
-	AllocConsole();    //为调用进程分配一个新的控制台
-	ShowWindow(GetConsoleWindow(), SW_HIDE);
 	InstalledImDisk();
 	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
@@ -2016,7 +2012,7 @@ void ghost() {
 				const char* tg = strcat(roots, target.c_str());
 				int pn = GetPartitionNumber(tg);
 				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy((char*)malloc(target.length() + 1), target.c_str())) + 1) + ":" + to_string(pn) + " -sure";
-				system(ghostexec.c_str());
+				RunMyExec(ghostexec.c_str());
 			}
 			else {
 				TCHAR disk[MAX_PATH] = { 0 };
@@ -2028,11 +2024,10 @@ void ghost() {
 				// 将子串赋值给一个变量 string
 				string result = sub;
 				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + ws2s(dirs) + ",dst=" + result + " -sure";
-				system(ghostexec.c_str());
+				RunMyExec(ghostexec.c_str());
 			}
 			EnableWindow(ghostartbtn, true);
 			MessageBox(hWnd, L"执行完成！重启计算机后将进行进一步安装Windows操作（以Ghost官方提示为准）！", L"成功：", MB_ICONINFORMATION);
-			ShowWindow(GetConsoleWindow(), SW_HIDE);
 		}
 	}
 }
@@ -2096,8 +2091,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				AddDiskList(hWndComboBox);
 			}
 			else {
-				GetDrivelist();
-				GetDrivelist();
+				GetDriveList(hWndComboBox);
 			}
 			break;
 		case parmode:
@@ -2108,8 +2102,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendMessage(selectmodedisk, BM_SETCHECK, 0, 0);
 			break;
 		case diskmode:
-			GetDrivelist();
-			GetDrivelist();
+			GetDriveList(hWndComboBox);
 			ispar = false;
 			SendMessage(selectmodepar, BM_SETCHECK, 0, 0);
 			SendMessage(selectmodedisk, BM_SETCHECK, 1, 0);
@@ -2180,9 +2173,9 @@ void writewim() {
 	TCHAR boot[MAX_PATH] = { 0 };
 	ComboBox_GetText(hWndComboBox3, boot, MAX_PATH);
 	string cmd = "bcdboot " + ws2s(tar) + "Windows /s " + ws2s(boot).at(0) + ": /f ALL /l zh-cn";
-	system(cmd.c_str());
+	RunMyExec(cmd.c_str());
 	cmd = ".\\bootsect.exe /nt60 " + to_string(ws2s(tar).at(0)) + ": /mbr";
-	system(cmd.c_str());
+	RunMyExec(cmd.c_str());
 	//
 	
 	TCHAR driverpath[MAX_PATH] = { 0 };
@@ -2332,7 +2325,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case RUNIMGDOWNLOAD:
 		{
 			string cline = "start .\\Downloader\\CDowner.exe "+to_string((int)hWnd);
-			system(cline.c_str());
+			RunMyExec(cline.c_str());
 			break;
 		}
 		case wimstartbt:
@@ -2474,7 +2467,7 @@ be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
 	CopyFile(s2ws(dirstr + "\\TXTSETUP.SIF").c_str(), s2ws(tarstr + "TXTSETUP.SIF").c_str(), false);
 	CopyFile(s2ws(dirstr + "\\BOOTFONT.BIN").c_str(), s2ws(tarstr + "BOOTFONT.BIN").c_str(), false);
 	CopyFile(L".\\NTLDR", s2ws(tarstr + "NTLDR").c_str(), false);
-	system(cmd.c_str());
+	RunMyExec(cmd.c_str());
 	isloading = false;
 	MessageBox(hWnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
 	SetWindowText(protxt, NULL);
@@ -2951,8 +2944,8 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			int ask = MessageBox(hwnd, L"确定要重启计算机，离开ComPE系统吗？若有操作正在进行，请确保其执行完毕后重启，否则可能造成设备损坏。\n重启请按“是”，否则请按“否”。", L"提示：", MB_YESNO | MB_ICONQUESTION);
 			if (ask == IDYES) {
 				powerOffProc();
-				system("wpeutil reboot");
-				system("pecmd shut r");
+				RunMyExec("wpeutil reboot");
+				RunMyExec("pecmd shut r");
 			}
 			break;
 		}
@@ -2969,7 +2962,6 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_CLOSE:
 		if (MessageBox(hwnd, L"确定要关闭程序吗？执行操作期间关闭可能导致设备损坏，确保所有操作结束后，选择“是”关闭程序。", L"提示：", MB_ICONQUESTION | MB_YESNO) == IDYES) {
-			DestroyWindow(GetConsoleWindow());
 			DestroyWindow(hwnd);
 		}
 		break;
@@ -2977,7 +2969,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		DeleteMountedEFI();
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
-		system(unmountcmd.c_str());
+		WinExec(unmountcmd.c_str(),SW_HIDE);
 		UninstalledImDisk();
 		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");

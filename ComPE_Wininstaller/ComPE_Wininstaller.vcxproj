@@ -138,6 +138,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="GetDisksList.cpp" />
     <ClCompile Include="jsoncpp.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="SecureBootAndTPMCheck.cpp" />
@@ -147,6 +148,7 @@
     <ClCompile Include="tinyxmlparser.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="getdiskslist.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SecureBootAndTPMCheck.h" />
     <ClInclude Include="wimlib.h" />
