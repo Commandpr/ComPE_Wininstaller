@@ -1773,6 +1773,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 3.NT5.x系统不支持UEFI启动和GPT硬盘格式，请确定自己的启动方式是Legacy启动并且硬盘格式是MBR，可通过Diskgenius或傲梅分区助手检查格式并更改成MBR格式磁盘。\n\
 4.程序执行操作期间，不建议对计算机进行任何操作，否则有可能对您的设备造成损坏！\n\
 5.程序提供无人值守的配置设置，允许您自定义一些在Windows安装期间自动执行的操作。本程序不提供盗版激活服务，如果要填写激活密钥请自行前往Microsoft官方网站购买。\n\
+6.程序选择WIM/ESD的驱动安装的时候，您可以将多个驱动放在同一个目录下，以进行批量安装驱动。\n\
 感谢您的使用，祝您使用愉快！";
 	SetWindowText(win4, s2ws(program_info).c_str());
 	HWND btfile1 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
@@ -2317,7 +2318,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			ZeroMemory(&bi, sizeof(BROWSEINFO));
 			bi.hwndOwner = NULL;
 			bi.pszDisplayName = szBuffer;
-			bi.lpszTitle = _T("选择包含驱动安装文件（*.inf）的目录:");
+			bi.lpszTitle = _T("选择包含驱动安装文件（*.inf）（可以包含在子目录中）的目录:");
 			bi.ulFlags = BIF_RETURNFSANCESTORS;
 			LPITEMIDLIST idl = SHBrowseForFolder(&bi);
 			if (NULL == idl)
