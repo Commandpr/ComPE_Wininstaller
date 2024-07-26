@@ -1500,7 +1500,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	RegisterClass(&wndcls7);//向操作系统注册窗体
 	//产生一个窗体，并返回该窗体的句柄，第一个参数必须为要创建的窗体的类名，第二个参数为窗体标题名
 	HWND hwnd = CreateWindow(L"CWinstWindowClass", L"CWInst系统安装工具",
-		WS_OVERLAPPEDWINDOW ^ WS_THICKFRAME, createx,
+		WS_OVERLAPPED^ WS_THICKFRAME ^ WS_CAPTION ^ WS_MINIMIZEBOX ^ WS_SYSMENU, createx,
 		createy, 640, 480,
 		NULL, NULL, hInstance, NULL);
 	//SendMessage(hiso, WM_FONTCHANGE, 0, 0);
