@@ -11,6 +11,51 @@
 
 #pragma comment(lib, "setupapi.lib")
 
+double GetPhysicalDriveSizeInGB(int driveNumber) {
+    if (driveNumber < 0) {
+        return -1.0; // 非法驱动器编号
+    }
+
+    // 构造设备名称，如\\.\PhysicalDrive0
+    std::wstring deviceName = L"\\\\.\\PhysicalDrive" + std::to_wstring(driveNumber);
+
+    // 打开磁盘设备
+    HANDLE hDevice = CreateFileW(
+        deviceName.c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        0,
+        NULL
+    );
+    if (hDevice == INVALID_HANDLE_VALUE) {
+        return -1.0; // 无法打开设备
+    }
+
+    DISK_GEOMETRY_EX diskGeometry;
+    DWORD bytesReturned;
+    BOOL result = DeviceIoControl(
+        hDevice,
+        IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+        NULL, 0,
+        &diskGeometry,
+        sizeof(diskGeometry),
+        &bytesReturned,
+        NULL
+    );
+    CloseHandle(hDevice);
+
+    if (!result) {
+        return -1.0; // 无法获取磁盘大小
+    }
+
+    // 计算磁盘大小（以GB为单位）
+    double sizeInBytes = static_cast<double>(diskGeometry.DiskSize.QuadPart);
+    double sizeInGB = sizeInBytes / (1024.0 * 1024.0 * 1024.0);
+    return sizeInGB;
+}
+
 void EnumerateStorageDevices(HDEVINFO deviceInfoSet, const GUID* classGuid, std::vector<std::wstring>& models) {
     SP_DEVINFO_DATA deviceInfoData;
     deviceInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
@@ -24,7 +69,8 @@ void EnumerateStorageDevices(HDEVINFO deviceInfoSet, const GUID* classGuid, std:
             DWORD error = GetLastError();
         }
         else {
-            models.push_back(buffer);
+            double size = GetPhysicalDriveSizeInGB(memberIndex);
+            models.push_back(std::to_wstring(memberIndex) + L"." + buffer + L",Size=" + std::to_wstring(size) + L"GB");
         }
 
         memberIndex++;
@@ -42,9 +88,9 @@ void GetDriveList(HWND hComboBox) {
     SetupDiDestroyDeviceInfoList(deviceInfoSet);
     int a = 0;
     for (const auto& model : diskModels) {
-        std::wcout << L"." << model << std::endl;
+        double size = GetPhysicalDriveSizeInGB(a);
         std::wstringstream wss;
-        wss << a << L"." << model << std::endl;
+        wss << model;
         ComboBox_AddString(hComboBox, wss.str().c_str());
         a++;
     }
