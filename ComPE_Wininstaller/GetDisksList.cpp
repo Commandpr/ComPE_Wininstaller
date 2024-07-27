@@ -14,13 +14,10 @@
 using namespace std;
 struct diskInfo
 {
-	string parNum; //分区号
 	int diskNum;   //磁盘号
 	string serivalNum;
 	string productId;
 	string vendId;
-	double parTotal; //分区总量
-	double parFree;  //分区可用
 };
 wstring ins2ws(const string& s) {
 	_bstr_t t = s.c_str();
