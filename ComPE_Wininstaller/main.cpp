@@ -2180,9 +2180,8 @@ void writewim() {
 	
 	TCHAR driverpath[MAX_PATH] = { 0 };
 	Edit_GetText(editDrive, driverpath, MAX_PATH);
-	vector<string> extensions = { ".INF" };
-	vector<string> driverList = findFilesWithExtensions(ws2s(driverpath), extensions);
-	if (!driverList.empty()) {
+	wstring dp = driverpath;
+	if (driverpath != L"" && is_folder_path(ws2s(driverpath))) {
 		SetWindowText(protxt, L"安装驱动...");
 		if (InstallDriver(tar, driverpath) != 0) {
 			isloading = false;
