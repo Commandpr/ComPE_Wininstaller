@@ -60,13 +60,28 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="C:\Users\Commandpr\Desktop\COMPE.bmp">
-      <Filter>资源文件</Filter>
-    </Image>
     <Image Include="COMPE.bmp">
       <Filter>头文件</Filter>
     </Image>
     <Image Include="compe.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="CWINST.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="icons\backup.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="icons\ghost.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="icons\reboot.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="icons\wim.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="icons\xp.ico">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

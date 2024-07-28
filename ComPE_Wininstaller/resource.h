@@ -6,6 +6,12 @@
 #define IDD_DIALOG2                     127
 #define IDI_ICON2                       133
 #define IDI_ICON1                       133
+#define IDB_BITMAP1                     134
+#define IDI_ICON3                       135
+#define IDI_ICON4                       136
+#define IDI_ICON5                       137
+#define IDI_ICON6                       138
+#define IDI_ICON7                       139
 #define IDC_COMBO1                      1005
 #define IDC_RADIO1                      1006
 #define IDC_EDIT1                       1007
@@ -22,7 +28,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        134
+#define _APS_NEXT_RESOURCE_VALUE        140
 #define _APS_NEXT_COMMAND_VALUE         40002
 #define _APS_NEXT_CONTROL_VALUE         1018
 #define _APS_NEXT_SYMED_VALUE           101

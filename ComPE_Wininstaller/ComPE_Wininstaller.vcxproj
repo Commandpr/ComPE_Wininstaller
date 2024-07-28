@@ -158,9 +158,14 @@
     <ResourceCompile Include="ComPE_Wininstaller1.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="C:\Users\Commandpr\Desktop\COMPE.bmp" />
     <Image Include="COMPE.bmp" />
     <Image Include="compe.ico" />
+    <Image Include="CWINST.bmp" />
+    <Image Include="icons\backup.ico" />
+    <Image Include="icons\ghost.ico" />
+    <Image Include="icons\reboot.ico" />
+    <Image Include="icons\wim.ico" />
+    <Image Include="icons\xp.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

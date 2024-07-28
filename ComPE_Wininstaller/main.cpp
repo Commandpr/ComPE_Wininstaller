@@ -1626,7 +1626,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		(HMENU)diskbt,       // No menu.
 		(HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);      // Pointer not needed.
-	HBITMAP logo = (HBITMAP)LoadImage(NULL, L".\\CWINST.bmp", IMAGE_BITMAP, 208, 60, LR_LOADFROMFILE);
+	HBITMAP logo = LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_BITMAP1));
 	btnlogo = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
 		NULL,      // Button text 
@@ -1692,15 +1692,15 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	SendMessage(btnxp, WM_SETFONT, (WPARAM)hFont, 1);
 	SendMessage(btnreboot, WM_SETFONT, (WPARAM)hFont, 1);
 	SendMessage(btnlogo, BM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)logo);
-	HBITMAP ghologo = (HBITMAP)LoadImage(NULL, L".\\icons\\ghost.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	HICON ghologo = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON4));
 	SendMessage(btnghost, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)ghologo);
-	HBITMAP wimlogo = (HBITMAP)LoadImage(NULL, L".\\icons\\wim.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	HICON wimlogo = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON6));
 	SendMessage(btnwim, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)wimlogo);
-	HBITMAP xplogo = (HBITMAP)LoadImage(NULL, L".\\icons\\xp.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	HICON xplogo = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON7));
 	SendMessage(btnxp, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)xplogo);
-	HBITMAP disklogo = (HBITMAP)LoadImage(NULL, L".\\icons\\backup.ico", IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+	HICON disklogo = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON3));
 	SendMessage(btndisk, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)disklogo);
-	HBITMAP rebootlogo = (HBITMAP)LoadImage(NULL, L".\\icons\\reboot.ico", IMAGE_ICON, 36, 36, LR_LOADFROMFILE);
+	HICON rebootlogo = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON5));
 	SendMessage(btnreboot, BM_SETIMAGE, (WPARAM)IMAGE_ICON, (LPARAM)rebootlogo);
 	TCITEM item1, item2, item3, item4, item5;
 	// 设置第一个选项卡项的文本和图像索引
