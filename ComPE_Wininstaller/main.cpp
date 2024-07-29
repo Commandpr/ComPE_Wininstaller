@@ -725,7 +725,7 @@ void loading_anim() {
 				SetWindowText(protxt2, NULL);
 				EnableWindow(btnlogo, TRUE);
 				EnableWindow(hTabCtrl, TRUE);
-				break;
+				return;
 			}
 			EnableWindow(btnlogo, FALSE);
 			EnableWindow(hTabCtrl, FALSE);
@@ -817,6 +817,8 @@ void mountwimiso() {
 	EnableWindow(btnxp, false);
 	EnableWindow(btnreboot, false);
 	isloading = true;
+	thread t(loading_anim);
+	t.detach();
 	SetWindowText(protxt, s2ws("取消上次挂载...").c_str());
 	string unmountcmd = "imdisk -D -m "+MountedDisk;
 	RunMyExec(unmountcmd.c_str());
@@ -1505,7 +1507,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		NULL, NULL, hInstance, NULL);
 	//SendMessage(hiso, WM_FONTCHANGE, 0, 0);
 	hWnd = hwnd;
-	SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
 	btnghost = CreateWindow(
 		L"BUTTON",  // Predefined class; Unicode assumed 
 		L"Ghost还原",      // Button text 
@@ -1938,8 +1939,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		//MountEFIPartition();
 	}
 
-	thread t(loading_anim);
-	t.detach();
+
 	bool secureBootEnabled = IsSecureBootEnabled();
 	bool tpm2Enabled = IsTPM2Enabled();
 	std::string secureBootEnabledstatus = secureBootEnabled ? "安全启动" : "非安全启动";
@@ -2120,6 +2120,8 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 void writewim() {
 	isloading = true;
+	thread t1(loading_anim);
+	t1.detach();
 	nowtime = 0;
 	thread t(CountSeconds);
 	t.detach();
@@ -2378,6 +2380,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void CopyXPFile() {
 	isloading = true;
+	thread t(loading_anim);
+	t.detach();
 	EnableWindow(win3, false);
 	EnableWindow(btnghost, false);
 	EnableWindow(btnwim, false);
@@ -2580,6 +2584,8 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 void Bak(){
 	isloading = true;
+	thread t1(loading_anim);
+	t1.detach();
 	nowtime = 0;
 	thread t(CountSeconds);
 	t.detach();
@@ -2968,11 +2974,10 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		DeleteMountedEFI();
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
-		WinExec(unmountcmd.c_str(),SW_HIDE);
+		RunMyExec(unmountcmd.c_str());
 		UninstalledImDisk();
 		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
-		SendMessage(hWnd, WM_FONTCHANGE, 0, 0);
 		PostQuitMessage(0);//发出WM_QUIT消息，结束消息循环
 		break;
 	}
