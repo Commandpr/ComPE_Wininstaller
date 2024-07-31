@@ -1762,7 +1762,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	win4 = CreateWindow(L"STATIC", NULL, WS_CHILD | WS_VISIBLE | WS_BORDER, 0, 0, 372, 355, hTabCtrl, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),    // g_hInst is the global instance handle
 		NULL);
 	SendMessage(win4, WM_SETFONT, (WPARAM)hFont2, 1);
-	string program_info = "感谢您使用CWinst Windows安装工具！\n\
+	string program_info = "感谢您使用CWinst Windows安装工具！官方网站：win-compe.top\n\
 本程序主要由C++ WinAPI编写，挂载镜像是第三方ImDisk。目前Windows的安装方式主要有Ghost系统安装，Windows Vista+的WIM/ESD安装和NT5.x类的I386三种安装方法，程序提供了三种方式以应对不同的操作系统的安装执行。\n\
 为保证您的使用体验，使用时需注意以下几点：\n\
 1.Ghost备份还原的时候由于Norton Ghost程序限制，程序路径请不要携带非英文字符，否则可能导致因无法识别目录导致安装失败。\n\
