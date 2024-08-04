@@ -51,6 +51,7 @@
 #define xpstartbt 1012
 #define DRIVELOADBT 9009
 #define RUNIMGDOWNLOAD 9010
+#define SWMBT 9011
 #define saveloadbt 1113
 #define savediskbt 2002
 #define diskmode 5000
@@ -80,7 +81,7 @@ HWND barbg, barfw, protxt,protxt2,protxt3;
 HWND btnreboot;
 HWND btnxp;
 HWND btnwim;
-HWND btnghost, ghostartbtn, btwimstart, btxpstart;
+HWND btnghost, ghostartbtn, btwimstart, btxpstart, btSWM;
 HWND win1, win2, win3, win4, win5;
 HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5,editDrive;
 HWND hsavediskcb,hsavepathedit,hcompcbox;
@@ -93,7 +94,9 @@ LRESULT CALLBACK InWin4Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK TWNSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK SWMSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 using namespace std;
+vector<wstring> EnableSWMs;
 string MountedDisk = "";
 bool isInstalled = true;
 vector<string> MountEFI;
@@ -318,19 +321,16 @@ int GetPartitionNumber(const char* rootPath) {
 	}
 }
 string GetFirmware() {
-	FIRMWARE_TYPE ft;
+	FIRMWARE_TYPE ft = FirmwareTypeUnknown;
 	GetFirmwareType(&ft);
 	switch (ft) {
-	case FirmwareTypeBios:
-	{
+	case FirmwareTypeBios:{
 		return "BIOS";
-
 	}
 	case FirmwareTypeUefi: {
 		return "UEFI";
 	}
-	default:
-	{
+	default:{
 		return "UNKNOWN";
 	}
 	}
@@ -1417,6 +1417,10 @@ void GetConfigJson() {
 	return ;
 }
 */
+
+
+
+
 LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 	DeleteMountedEFI();
 	string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
@@ -1825,6 +1829,11 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	HWND btre2 = CreateWindow(L"BUTTON", L"刷新列表", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 125, 64, 22, win2, (HMENU)wimdiskbt1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
+	btSWM = CreateWindow(L"BUTTON", L"SWM管理", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		280, 155, 64, 22, win2, (HMENU)SWMBT, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	SendMessage(btSWM, WM_SETFONT, (WPARAM)hFont2, 1);
+	EnableWindow(btSWM, FALSE);
 	HWND btfmt1 = CreateWindow(L"BUTTON", L"格式化", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		216, 125, 64, 22, win2, (HMENU)fmt1, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
@@ -2149,13 +2158,38 @@ void writewim() {
 	int cs = ComboBox_GetCurSel(hWndComboBox4) + 1;
 	TCHAR tar[MAX_PATH] = { 0 };
 	ComboBox_GetText(hWndComboBox2, tar, MAX_PATH);
-	int ec;
-	ec = wimlib_extract_image(WIM, cs, tar, NULL);
+	if (!EnableSWMs.empty()) {
+		size_t size = EnableSWMs.size();
+
+		// 创建一个足够大的wstring数组来存储vector中的元素
+		const wchar_t** wstringArray = new const wchar_t*[size];
+
+		// 将vector中的元素复制到数组中
+		for (size_t i = 0; i < size; ++i) {
+			wstringArray[i] = EnableSWMs[i].c_str();
+		}
+		result = wimlib_reference_resource_files(WIM, wstringArray, 1, WIMLIB_REF_FLAG_GLOB_ERR_ON_NOMATCH, NULL);
+		//
+		if (result != 0) {
+			wimlib_free(WIM);
+			delete[] wstringArray;
+			isloading = false;
+			MessageBox(hWnd, s2ws("整合拆分swm时发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
+			EnableWindow(win2, true);
+			EnableWindow(btnghost, true);
+			EnableWindow(btnxp, true);
+			EnableWindow(btndisk, true);
+			EnableWindow(btnreboot, true);
+			return;
+		}
+		delete[] wstringArray;
+	}
+	result = wimlib_extract_image(WIM, cs, tar, NULL);
 	//
-	if (ec != 0) {
+	if (result != 0) {
 		wimlib_free(WIM);
 		isloading = false;
-		MessageBox(hWnd, s2ws("应用WIM/ESD映像的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)ec)))).c_str(), 0, MB_ICONERROR);
+		MessageBox(hWnd, s2ws("应用WIM/ESD映像的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win2, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
@@ -2250,22 +2284,29 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case wimloadbt:
 		{
 			try {
-				TCHAR* file = GetGhoFile(L"Windows映像文件(*.wim/*.esd/*.swm/*.iso)\0*.wim;*.esd;*.swm;*.iso\0\0", hwnd);
+				EnableSWMs.clear();
+				wstring file = GetGhoFile(L"Windows映像文件(*.wim/*.esd/*.swm/*.iso)\0*.wim;*.esd;*.swm;*.iso\0\0", hwnd);
+				EnableWindow(btSWM, FALSE);
 				string filepath = ws2s(file).c_str();
 				filesystem::path path_obj(filepath);
 				string files = filepath;
 			// 检查路径是否存在并且是一个文件
 				if (filesystem::exists(path_obj) && filesystem::is_regular_file(path_obj)) {
-					// 获取并输出文件后缀
 					if (path_obj.extension() == ".iso" || path_obj.extension() == ".ISO") {
 						isopath = files;
 						imgtype = 0;
 						thread t(mountwimiso);
 						t.detach();
 						break;
+					}if (path_obj.extension() == ".swm" || path_obj.extension() == ".SWM") {
+						Edit_SetText(edit2, file.c_str());
+						DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG3), hWnd, SWMSunProc);
+						GetWimSysInfo(file.c_str());
+						EnableWindow(btSWM, TRUE);
+						break;
 					}
-					Edit_SetText(edit2, file);
-					GetWimSysInfo(file);
+					Edit_SetText(edit2, file.c_str());
+					GetWimSysInfo(file.c_str());
 				}
 				
 				break;
@@ -2323,6 +2364,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Edit_SetText(editDrive, szBuffer);
 			break;
 		}
+		case SWMBT:
+			DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG3), hWnd, SWMSunProc);
 		case RUNIMGDOWNLOAD:
 		{
 			string cline = "start .\\Downloader\\CDowner.exe "+to_string((int)hWnd);
@@ -3009,6 +3052,7 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_COMMAND: {
 		switch (LOWORD(wParam)) {
 		case IDOK:
+		{
 			TCHAR wimfile[MAX_PATH] = { 0 };
 			ComboBox_GetText(GetDlgItem(hwnd, IDC_COMBO1), wimfile, MAX_PATH);
 			string wimuse = ws2s(wimfile);
@@ -3023,6 +3067,14 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			case 0: {
 				Edit_SetText(edit2, s2ws(wimuse).c_str());
 				wstring filefrom = s2ws(wimuse);
+				filesystem::path wpath_obj(filefrom);
+				wstring files = filefrom;
+				if (wpath_obj.extension() == L".swm" || wpath_obj.extension() == L".SWM") {
+					DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG3), hWnd, SWMSunProc);
+					EnableWindow(btSWM, TRUE);
+					GetWimSysInfo(filefrom.c_str());
+					break;
+				}
 				GetWimSysInfo(filefrom.c_str());
 				break;
 			}
@@ -3033,9 +3085,11 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			EndDialog(hwnd, 0);
 			return TRUE;
 		}
+		}
 		return TRUE;
 	}
 	case WM_CLOSE:
+	{
 		TCHAR wimfile[MAX_PATH] = { 0 };
 		ComboBox_GetText(GetDlgItem(hwnd, IDC_COMBO1), wimfile, MAX_PATH);
 		string wimuse = ws2s(wimfile);
@@ -3059,6 +3113,82 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		}
 		EndDialog(hwnd, 0);
 		return TRUE;
+	}
+	}
+	return FALSE;
+}
+
+LRESULT CALLBACK SWMSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	switch (uMsg)//通过判断消息进行消息响应
+	{
+	case WM_INITDIALOG://初始化对话框的代码添加到这
+	{
+		wchar_t SWMPath[MAX_PATH] = { 0 };
+		Edit_GetText(edit2, SWMPath, MAX_PATH);
+ 		SetWindowText(GetDlgItem(hwnd, IDC_STCSWM), SWMPath);
+		for (wstring ESFS : EnableSWMs) {
+			ListBox_AddString(GetDlgItem(hwnd, IDC_LIST1), ESFS.c_str());
+		}
+		EnableSWMs.clear();
+		return TRUE;
+	}
+	case WM_COMMAND: {
+		switch (LOWORD(wParam)) {
+		case IDOK:
+		{
+			int allItem = ListBox_GetCount(GetDlgItem(hwnd, IDC_LIST1));
+			for (int i = 0; i <= allItem; ++i) {
+				wchar_t theSwm[MAX_PATH] = { 0 };
+				ListBox_GetText(GetDlgItem(hwnd, IDC_LIST1), i, theSwm);
+				wstring Tsm = theSwm;
+				if (Tsm != L"") {
+					EnableSWMs.push_back(theSwm);
+				}
+			}
+			EndDialog(hwnd, 0);
+			return TRUE;
+		}
+		case IDC_BUTTON1: {
+			wstring file = GetGhoFile(L"拆分映像文件(*.swm)\0*.swm\0\0", hwnd);
+			int allItem = ListBox_GetCount(GetDlgItem(hwnd, IDC_LIST1));
+			for (int i = 0; i <= allItem; ++i) {
+				wchar_t theSwm[MAX_PATH] = { 0 };
+				ListBox_GetText(GetDlgItem(hwnd, IDC_LIST1), i, theSwm);
+				wstring Tswm = theSwm;
+				if (Tswm == file) {
+					MessageBox(hwnd, L"不能重复添加swm文件！", NULL, MB_ICONERROR);
+					return TRUE;
+				}
+			}
+			wchar_t theSwm[MAX_PATH] = { 0 };
+			Static_GetText(GetDlgItem(hwnd, IDC_STCSWM), theSwm, MAX_PATH);
+			wstring Tswm = theSwm;
+			if (Tswm == file) {
+				MessageBox(hwnd, L"不能重复添加swm文件！", NULL, MB_ICONERROR);
+				return TRUE;
+			}
+			ListBox_AddString(GetDlgItem(hwnd, IDC_LIST1), file.c_str());
+			break;
+		}case IDC_BUTTON2: {
+			ListBox_DeleteString(GetDlgItem(hwnd, IDC_LIST1), ListBox_GetCurSel(GetDlgItem(hwnd, IDC_LIST1)));
+		}
+		}
+		return TRUE;
+	}
+	case WM_CLOSE:
+	{
+		int allItem = ListBox_GetCount(GetDlgItem(hwnd, IDC_LIST1));
+		for (int i = 0; i <= allItem; ++i) {
+			wchar_t theSwm[MAX_PATH] = { 0 };
+			ListBox_GetText(GetDlgItem(hwnd, IDC_LIST1), i, theSwm);
+			wstring Tsm = theSwm;
+			if (Tsm != L"") {
+				EnableSWMs.push_back(theSwm);
+			}
+		}
+		EndDialog(hwnd, 0);
+		return TRUE;
+	}
 	}
 	return FALSE;
 }
