@@ -41,6 +41,7 @@
 #define wimdiskbt1 2000
 #define wimdiskbt2 2001
 #define xploadbt 1007
+#define xpisoloadbt 1008
 #define txtloadbt 3001
 #define xpdiskbt 3002
 #define wimloadbt 1008
@@ -83,10 +84,9 @@ HWND btnxp;
 HWND btnwim;
 HWND btnghost, ghostartbtn, btwimstart, btxpstart, btSWM;
 HWND win1, win2, win3, win4, win5;
-HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5,editDrive;
+HWND edit, hWndComboBox, edit2, hWndComboBox2, hWndComboBox3, edit3, hWndComboBox4, edit4, edit5, hWndComboBox5,editDrive,StcCPUMode;
 HWND hsavediskcb,hsavepathedit,hcompcbox;
 HWND selectmodedisk, selectmodepar;
-HWND kyes, kno;
 LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -249,7 +249,59 @@ void UninstalledImDisk() {
 		return;
 	}
 }
+BOOL GetCPUOfWinXP(wstring filePath, wstring* SysVer) {
+	std::wifstream file(filePath + L"\\I386\\TXTSETUP.SIF");
 
+	if (!file.is_open()) {
+		file.open(filePath + L"\\AMD64\\TXTSETUP.SIF");
+		if (!file.is_open()) {
+			MessageBox(hWnd, L"无法打开安装程序文件！请检查选择的文件夹完整性！", NULL, MB_ICONERROR);
+			return -1;
+		}
+	}
+
+	std::wstring line;
+	bool inStringsSection = false;
+	std::wstring productName;
+
+	while (getline(file, line)) {
+		// 检查是否进入[Strings]节
+		if (line.find(L"[Strings]") != std::string::npos) {
+			inStringsSection = true;
+			continue;
+		}
+
+		// 检查是否离开[Strings]节
+		if (inStringsSection && line.find(L"]") != std::string::npos) {
+			break;
+		}
+
+		// 如果在[Strings]节内，检查ProductName
+		if (inStringsSection) {
+			size_t keyStart = line.find(L"productname = ");
+			if (keyStart != std::string::npos) {
+				// 找到ProductName，提取其值
+				size_t valueStart = keyStart + std::wstring(L"productname = ").length();
+				size_t valueEnd = line.find_first_of(L"\n", valueStart);
+				productName = line.substr(valueStart, valueEnd - valueStart);
+				break;
+			}
+		}
+	}
+
+	file.close();
+
+	if (!productName.empty()) {
+		*SysVer = productName;
+		return productName.find(L"x64") != std::wstring::npos;
+	}
+	else {
+		MessageBox(hWnd, L"不是有效的Windows安装源！请检查选择的文件夹完整性！", NULL, MB_ICONERROR);
+		return -1;
+	}
+
+	return 0;
+}
 const wchar_t* GetWimErrorString(int ErrCode) {
 	Json::Value value;
 	Json::Reader reader;
@@ -811,11 +863,15 @@ string isopath;
 int imgtype;
 vector<string> imglist;
 void mountwimiso() {
+	EnableWindow(win1, false);
 	EnableWindow(win2, false);
+	EnableWindow(win3, false);
 	EnableWindow(btndisk,false);
 	EnableWindow(btnghost, false);
 	EnableWindow(btnxp, false);
 	EnableWindow(btnreboot, false);
+	EnableWindow(btnwim, false);
+
 	isloading = true;
 	thread t(loading_anim);
 	t.detach();
@@ -837,9 +893,13 @@ void mountwimiso() {
 	}
 	if (MDisk == "") {
 		isloading = false;
+		EnableWindow(win1, true);
 		EnableWindow(win2, true);
+		EnableWindow(win3, true);
 		EnableWindow(btndisk, true);
 		EnableWindow(btnghost, true);
+		EnableWindow(btnwim, true);
+
 		EnableWindow(btnxp, true);
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
@@ -851,10 +911,14 @@ void mountwimiso() {
 	int status = RunMyExec(mountcmd.c_str());
 	if (status != 0) {
 		isloading = false;
+		EnableWindow(win1, true);
 		EnableWindow(win2, true);
+		EnableWindow(win3, true);
 		EnableWindow(btndisk, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
+		EnableWindow(btnwim, true);
+
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
 		MessageBox(hWnd, L"无法挂载ISO以读取镜像信息，请检查程序完整性或确定镜像是否正确！", NULL, MB_ICONERROR);
@@ -873,11 +937,25 @@ void mountwimiso() {
 		break;
 	}
 	case 2: {
+		Edit_SetText(edit4, s2ws(MDisk).c_str());
+		wstring WinVer;
+		BOOL cpuresult = GetCPUOfWinXP(s2ws(MDisk), &WinVer);
+		if (cpuresult == -1) {
+			SetWindowText(StcCPUMode, L"不是有效的Windows源文件！");
+		}
+		else if (cpuresult) {
+			SetWindowText(StcCPUMode, WinVer.c_str());
+		}
+		else {
+			SetWindowText(StcCPUMode, WinVer.c_str());
+		}
 		isloading = false;
+		EnableWindow(win1, true);
 		EnableWindow(win2, true);
+		EnableWindow(win3, true);
 		EnableWindow(btndisk, true);
 		EnableWindow(btnghost, true);
-		EnableWindow(btnxp, true);
+		EnableWindow(btnwim, true);
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
 		return;
@@ -888,11 +966,15 @@ void mountwimiso() {
 		foundFiles = findFilesWithExtensions(MDisk, extensions);
 		if (foundFiles.empty()) {
 			isloading = false;
+			EnableWindow(win1, true);
 			EnableWindow(win2, true);
+			EnableWindow(win3, true);
 			EnableWindow(btndisk, true);
 			EnableWindow(btnghost, true);
 			EnableWindow(btnxp, true);
 			EnableWindow(btnreboot, true);
+			EnableWindow(btnwim, true);
+
 			SetWindowText(protxt, NULL);
 			MessageBox(hWnd, L"ISO不包含映像，请检查选择的ISO是否正确", NULL, MB_ICONERROR);
 			string unmountcmd = "imdisk -D -m " + MountedDisk;
@@ -902,10 +984,14 @@ void mountwimiso() {
 	}
 	catch (exception) {
 		isloading = false;
+		EnableWindow(win1, true);
 		EnableWindow(win2, true);
+		EnableWindow(win3, true);
 		EnableWindow(btndisk, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
+		EnableWindow(btnwim, true);
+
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
 		MessageBoxA(hWnd, "无法搜索文件！\n这可能是镜像的分区格式不兼容，Windows无法识别这种分区格式。\n请尝试选择其他的ISO镜像", NULL, MB_ICONERROR);
@@ -915,8 +1001,12 @@ void mountwimiso() {
 	}
 	if (foundFiles.size() == 1) {
 		isloading = false;
+		EnableWindow(win1, true);
 		EnableWindow(win2, true);
+		EnableWindow(win3, true);
 		EnableWindow(btndisk, true);
+		EnableWindow(btnwim, true);
+
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
 		EnableWindow(btnreboot, true);
@@ -925,12 +1015,14 @@ void mountwimiso() {
 		case 0:
 		{
 			Edit_SetText(edit2, s2ws(foundFiles.at(0)).c_str());
+			EnableWindow(btnwim, false);
 			wstring filefrom = s2ws(foundFiles.at(0));
 			GetWimSysInfo(filefrom.c_str());
 			break;
 		}
 		case 1:
 			Edit_SetText(edit, s2ws(foundFiles.at(0)).c_str());
+			EnableWindow(btnghost,false);
 			break;
 		}
 		return;
@@ -1913,7 +2005,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		NULL);
 	SendMessage(btxpstart, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit4 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
-		100, 99, 180, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
+		100, 99, 115, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
 	SendMessage(edit4, WM_SETFONT, (WPARAM)hFont2, 1);
 	edit5 = CreateWindow(L"EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
 		100, 169, 180, 21, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL);
@@ -1967,10 +2059,18 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		280, 99, 64, 22, win3, (HMENU)xploadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(btdir, WM_SETFONT, (WPARAM)hFont2, 1);
+	HWND btxpiso = CreateWindow(L"BUTTON", L"选择镜像", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		216, 99, 64, 22, win3, (HMENU)xpisoloadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	SendMessage(btxpiso, WM_SETFONT, (WPARAM)hFont2, 1);
 	HWND btfile4 = CreateWindow(L"BUTTON", L"选择文件", WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
 		280, 169, 64, 22, win3, (HMENU)txtloadbt, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
 		NULL);
 	SendMessage(btfile4, WM_SETFONT, (WPARAM)hFont2, 1);
+	StcCPUMode = CreateWindow(WC_STATIC, NULL, WS_VISIBLE | WS_CHILD | BS_FLAT | BS_PUSHBUTTON,
+		70, 249, 250, 22, win3, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+		NULL);
+	SendMessage(StcCPUMode, WM_SETFONT, (WPARAM)hFont2, 1);
 	//hwlst = CreateWindow(WC_COMBOBOX, TEXT(""),
 	//	CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 	//	12, 55, 320, 20, hiso, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
@@ -2366,6 +2466,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case SWMBT:
 			DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG3), hWnd, SWMSunProc);
+			break;
 		case RUNIMGDOWNLOAD:
 		{
 			string cline = "start .\\Downloader\\CDowner.exe "+to_string((int)hWnd);
@@ -2420,7 +2521,6 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 	return 0;
 }
-
 void CopyXPFile() {
 	isloading = true;
 	thread t(loading_anim);
@@ -2430,29 +2530,52 @@ void CopyXPFile() {
 	EnableWindow(btnwim, false);
 	EnableWindow(btndisk, false);
 	EnableWindow(btnreboot, false);
-	TCHAR tar[1024] = { 0 };
-	ComboBox_GetText(hWndComboBox5, tar, 1024);
+	TCHAR tar[MAX_PATH] = { 0 };
+	ComboBox_GetText(hWndComboBox5, tar, MAX_PATH);
 	string tarstr = ws2s(tar).c_str();
-	TCHAR dirs[1024] = { 0 };
-	Edit_GetText(edit4, dirs, 1024);
-	string dirstr = ws2s(dirs).c_str();
-	TCHAR i86fdr[1024] = { 0 };
+	TCHAR dirs[MAX_PATH] = { 0 };
+	Edit_GetText(edit4, dirs, MAX_PATH);
+	wstring nullstr;
+	BOOL cpuresult = GetCPUOfWinXP(dirs,&nullstr);
+	string dirstr;
+	string CPUMode;
+	if (cpuresult) {
+		dirstr = (ws2s(dirs)+ "\\AMD64");
+		CPUMode = "AMD64";
+	}
+	if (cpuresult == -1) {
+		isloading = false;
+		SetWindowText(protxt, NULL);
+		MoveWindow(barfw, 0, 427, 0, 15, TRUE);
+		EnableWindow(win3, true);
+		EnableWindow(btnghost, true);
+		EnableWindow(btnwim, true);
+		EnableWindow(btndisk, true);
+		EnableWindow(btnreboot, true);
+		return;
+	}
+	if (!cpuresult) {
+		dirstr = (ws2s(dirs) + "\\I386");
+		CPUMode = "I386";
+	}
+	TCHAR i86fdr[MAX_PATH] = { 0 };
 	string path = tarstr + "$WIN_NT$.~BT";
 	bool flag = CreateDirectory(s2ws(path).c_str(), NULL);
 	string filelist[] = { "1394BUS.SY_","ABP480N5.SY_","ACPI.SY_","ACPIEC.SY_","ADPU160M.SY_","AHA154X.SY_","AIC78U2.SY_","AIC78XX.SY_","ALIIDE.SY_","AMSINT.SY_","ASC.SY_","ASC3350P.SY_","ASC3550.SY_","ATAPI.SY_","BIOSINFO.INF","BOOTFONT.BIN","BOOTVID.DL_","CBIDF2K.SY_","CD20XRNT.SY_","CDFS.SY_","CDROM.SY_","CLASSPNP.SY_","CMDIDE.SY_","CPQARRAY.SY_","C_936.NL_","DAC2W2K.SY_","DAC960NT.SY_","DISK.SY_","disk1","DMBOOT.SY_","DMIO.SY_","DMLOAD.SY_","DPTI2O.SY_","DRVMAIN.SDB","FASTFAT.SY_","FDC.SY_","FLPYDISK.SY_","FTDISK.SY_","HAL.DL_","HALAACPI.DL_","HALACPI.DL_","HALAPIC.DL_","HIDCLASS.SY_","HIDPARSE.SY_","HIDUSB.SY_","HPN.SY_","I2OMGMT.SY_","I2OMP.SY_","I8042PRT.SY_","INI910U.SY_","INTELIDE.SY_","ISAPNP.SY_","KBDCLASS.SY_","KBDHID.SY_","KBDUS.DLL","KD1394.DL_","KDCOM.DL_","KSECDD.SYS","LBRTFDC.SY_","L_INTL.NL_","migrate.inf","MOUNTMGR.SY_","MRAID35X.SY_","NTDETECT.COM","NTFS.SYS","NTKRNLMP.EX_","NTLDR","OHCI1394.SY_","OPRGHDLR.SY_","PARTMGR.SY_","PCI.SY_","PCIIDE.SY_","PCIIDEX.SY_","PCMCIA.SY_","PERC2.SY_","PERC2HIB.SY_","QL1080.SY_","QL10WNT.SY_","QL12160.SY_","QL1240.SY_","QL1280.SY_","RAMDISK.SY_","SBP2PORT.SY_","SCSIPORT.SY_","SERENUM.SY_","SERIAL.SY_","SETUPDD.SY_","SETUPLDR.BIN","SETUPREG.HIV","SFLOPPY.SY_","SPARROW.SY_","SPCMDCON.SYS","SPDDLANG.SY_","SYMC810.SY_","SYMC8XX.SY_","SYM_HI.SY_","SYM_U3.SY_","TFFSPORT.SY_","TOSIDE.SY_","TXTSETUP.SIF","ULTRA.SY_","USBCCGP.SY_","USBD.SY_","USBEHCI.SY_","USBHUB.SY_","USBOHCI.SY_","USBPORT.SY_","USBSTOR.SY_","USBUHCI.SY_","VGA.SY_","VGAOEM.FO_","VIAIDE.SY_","VIDEOPRT.SY_","WINNT.SIF","WMILIB.SY_" };
 	int a = 0;
+	string dirstr2;
 	for (string file : filelist) {
 		try {
 			a++;
 			CopyFile(s2ws(dirstr + "\\" + file).c_str(), s2ws(path + "\\" + file).c_str(), FALSE);
-			SetWindowText(protxt, s2ws("复制启动文件文件：" + file).c_str());
+			SetWindowText(protxt, s2ws("复制启动文件：" + file).c_str());
 			MoveWindow(barfw, 0, 427, (float)a * (640 / 114), 14, TRUE);
 		}
 		catch (exception) {
 			isloading = false;
 			MessageBox(hWnd, L"复制文件错误！未成功找到文件，请确认文件夹是否正确！", 0, MB_ICONERROR);
 			SetWindowText(protxt, NULL);
-			MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+			MoveWindow(barfw, 0, 427, 0, 15, TRUE);
 			EnableWindow(win3, true);
 			EnableWindow(btnghost, true);
 			EnableWindow(btnwim, true);
@@ -2465,18 +2588,28 @@ void CopyXPFile() {
 		SetWindowText(protxt, s2ws("复制SYSTEM32文件夹...").c_str());
 		CreateDirectory(s2ws(path + "\\SYSTEM32").c_str(), NULL);
 		filesystem::copy(dirstr + "\\SYSTEM32", path + "\\SYSTEM32", filesystem::copy_options::recursive);
-		MoveWindow(barfw, 0, 425, 113 * (640 / 114), 15, TRUE);
+		MoveWindow(barfw, 0, 427, 113 * (640 / 114), 15, TRUE);
 		SetWindowText(protxt, s2ws("复制安装文件夹...").c_str());
 		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS").c_str(), NULL);
-		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS\\I386").c_str(), NULL);
-		filesystem::copy(dirstr, tarstr + "$WIN_NT$.~LS\\I386", filesystem::copy_options::recursive);
-		MoveWindow(barfw, 0, 425, 640, 15, TRUE);
+		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS\\"+CPUMode).c_str(), NULL);
+		filesystem::copy(dirstr, tarstr + "$WIN_NT$.~LS\\" + CPUMode, filesystem::copy_options::recursive);
+		if (CPUMode == "I386") {
+			MoveWindow(barfw, 0, 427, 640, 15, TRUE);
+			goto CopyOK;
+		}
+		else {
+			CPUMode = "I386";
+		}
+		dirstr2 = ws2s(dirs);
+		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS\\" + CPUMode).c_str(), NULL);
+		filesystem::copy(dirstr2+CPUMode, tarstr + "$WIN_NT$.~LS\\" + CPUMode, filesystem::copy_options::recursive);
+		MoveWindow(barfw, 0, 427, 640, 15, TRUE);
 	}
 	catch (exception) {
 		isloading = false;
 		MessageBox(hWnd, L"复制文件夹错误！未成功找到文件夹，请确认文件夹是否正确！", 0, MB_ICONERROR);
 		SetWindowText(protxt, NULL);
-		MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+		MoveWindow(barfw, 0, 427, 0, 15, TRUE);
 		EnableWindow(win3, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnwim, true);
@@ -2484,6 +2617,7 @@ void CopyXPFile() {
 		EnableWindow(btnreboot, true);
 		return;
 	}
+CopyOK:
 	fstream f;
 	string sifolder = tarstr + "$WIN_NT$.~BT\\WINNT.SIF";
 	f.open(sifolder, ios::out);
@@ -2501,23 +2635,26 @@ HKLM, \"SYSTEM\\MountedDevices\", \"\\DosDevices\\C:\", 0x00030001, \\\
 be, 1d, 6d, 24, 00, 00, 10, 00, 00, 00, 00, 00";
 	f2 << mig << endl;
 	f2.close();
-	TCHAR txtfile[1024] = { 0 };
-	Edit_GetText(edit5, txtfile, 1024);
+	TCHAR txtfile[MAX_PATH] = { 0 };
+	Edit_GetText(edit5, txtfile, MAX_PATH);
 	if (isFileExists_ifstream(ws2s(txtfile))) {
 		CopyFile(txtfile, s2ws(tarstr + "$WIN_NT$.~BT\\WINNT.SIF").c_str(), false);
 	}
 	SetWindowText(protxt, L"更新引导...");
 	string cmd = ".\\bootsect.exe /nt52 " + to_string(ws2s(tar).at(0)) + ": /mbr";
 	SetWindowText(protxt, s2ws("复制引导文件...").c_str());
+	CopyFile(s2ws(dirstr2 + "\\I386\\NTDETECT.COM").c_str(), s2ws(tarstr + "NTDETECT.COM").c_str(), false);
 	CopyFile(s2ws(dirstr + "\\NTDETECT.COM").c_str(), s2ws(tarstr + "NTDETECT.COM").c_str(), false);
+	CopyFile(s2ws(dirstr2 + "\\I386\\TXTSETUP.SIF").c_str(), s2ws(tarstr + "TXTSETUP.SIF").c_str(), false);
 	CopyFile(s2ws(dirstr + "\\TXTSETUP.SIF").c_str(), s2ws(tarstr + "TXTSETUP.SIF").c_str(), false);
+	CopyFile(s2ws(dirstr2 + "\\I386\\BOOTFONT.BIN").c_str(), s2ws(tarstr + "BOOTFONT.BIN").c_str(), false);
 	CopyFile(s2ws(dirstr + "\\BOOTFONT.BIN").c_str(), s2ws(tarstr + "BOOTFONT.BIN").c_str(), false);
 	CopyFile(L".\\NTLDR", s2ws(tarstr + "NTLDR").c_str(), false);
 	RunMyExec(cmd.c_str());
 	isloading = false;
 	MessageBox(hWnd, L"安装成功！重启后将进行进一步安装。", L"提示：", MB_ICONINFORMATION);
 	SetWindowText(protxt, NULL);
-	MoveWindow(barfw, 0, 425, 0, 15, TRUE);
+	MoveWindow(barfw, 0, 427, 0, 15, TRUE);
 	EnableWindow(win3, true);
 	EnableWindow(btnghost, true);
 	EnableWindow(btnwim, true);
@@ -2533,14 +2670,14 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_PAINT: // 绘制消息
 	{
 		TCHAR msg1[] = L"           对于早期Windows操作系统（XP及更早版本）";
-		TCHAR msg2[] = L"         光盘映像内由一个I386文件夹存放安装信息";
-		TCHAR msg3[] = L"   本页面可用于安装NT5.x的操作系统（暂不支持x64）。";
-		TCHAR i86dir[] = L"   I386目录：";
+		TCHAR msg2[] = L"    光盘映像内由一个I386文件夹或AMD64文件夹存放安装信息";
+		TCHAR msg3[] = L"                本页面可用于安装NT5.x的操作系统。";
+		TCHAR i86dir[] = L"   系统目录：";
 		TCHAR i86disk[] = L"   安装分区：";
 		TCHAR txtdir[] = L"   应答文件：";
 		TCHAR msg4[] = L"          （留空或路径不正确则不进行无人值守模式）";
 		TCHAR msg5[] = L"      注：所有早期Windows操作系统均不支持UEFI启动";
-		TCHAR msg6[] = L"I386文件夹目录格式示例：“D:\\I386”（路径不要带空格）";
+		TCHAR msg6[] = L"文件夹目录格式示例：“D:\\”（其中有D:\\I386或D:\\AMD64）";
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps); // 获取设备上下文  
 		SetBkMode(hdc, TRANSPARENT);
@@ -2587,7 +2724,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			ZeroMemory(&bi, sizeof(BROWSEINFO));
 			bi.hwndOwner = NULL;
 			bi.pszDisplayName = szBuffer;
-			bi.lpszTitle = _T("选择I386目录:");
+			bi.lpszTitle = _T("选择包含I386或AMD64的目录:");
 			bi.ulFlags = BIF_RETURNFSANCESTORS;
 			LPITEMIDLIST idl = SHBrowseForFolder(&bi);
 			if (NULL == idl)
@@ -2596,6 +2733,25 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			}
 			SHGetPathFromIDList(idl, szBuffer);
 			Edit_SetText(edit4, szBuffer);
+			wstring WinVer;
+			BOOL cpuresult = GetCPUOfWinXP(szBuffer,&WinVer);
+			if (cpuresult == -1) {
+				SetWindowText(StcCPUMode, L"不是有效的Windows源文件！");
+			}else if (cpuresult) {
+				SetWindowText(StcCPUMode, WinVer.c_str());
+			}
+			else {
+				SetWindowText(StcCPUMode, WinVer.c_str());
+			}
+			break;
+		}
+		case xpisoloadbt:
+		{
+			
+			isopath = ws2s(GetGhoFile(L"镜像文件(*.iso)\0*.iso\0\0", hwnd));
+			imgtype = 2;
+			thread t(mountwimiso);
+			t.detach();
 			break;
 		}
 		case xpstartbt:
@@ -3057,7 +3213,9 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			ComboBox_GetText(GetDlgItem(hwnd, IDC_COMBO1), wimfile, MAX_PATH);
 			string wimuse = ws2s(wimfile);
 			isloading = false;
+			EnableWindow(win1, true);
 			EnableWindow(win2, true);
+			EnableWindow(win3, true);
 			EnableWindow(btndisk, true);
 			EnableWindow(btnghost, true);
 			EnableWindow(btnxp, true);
@@ -3065,6 +3223,7 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			SetWindowText(protxt, NULL);
 			switch (imgtype) {
 			case 0: {
+				EnableWindow(btnwim, false);
 				Edit_SetText(edit2, s2ws(wimuse).c_str());
 				wstring filefrom = s2ws(wimuse);
 				filesystem::path wpath_obj(filefrom);
@@ -3080,7 +3239,10 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			}
 			case 1:
 				Edit_SetText(edit, s2ws(imglist.at(0)).c_str());
+				EnableWindow(btnghost, false);
 				break;
+			case 2:
+				EnableWindow(btnxp, false);
 			}
 			EndDialog(hwnd, 0);
 			return TRUE;
@@ -3094,7 +3256,9 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		ComboBox_GetText(GetDlgItem(hwnd, IDC_COMBO1), wimfile, MAX_PATH);
 		string wimuse = ws2s(wimfile);
 		isloading = false;
+		EnableWindow(win1, true);
 		EnableWindow(win2, true);
+		EnableWindow(win3, true);
 		EnableWindow(btndisk, true);
 		EnableWindow(btnghost, true);
 		EnableWindow(btnxp, true);
@@ -3102,14 +3266,26 @@ LRESULT CALLBACK ISOSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		SetWindowText(protxt, NULL);
 		switch (imgtype) {
 		case 0: {
+			EnableWindow(btnwim, false);
 			Edit_SetText(edit2, s2ws(wimuse).c_str());
 			wstring filefrom = s2ws(wimuse);
+			filesystem::path wpath_obj(filefrom);
+			wstring files = filefrom;
+			if (wpath_obj.extension() == L".swm" || wpath_obj.extension() == L".SWM") {
+				DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG3), hWnd, SWMSunProc);
+				EnableWindow(btSWM, TRUE);
+				GetWimSysInfo(filefrom.c_str());
+				break;
+			}
 			GetWimSysInfo(filefrom.c_str());
 			break;
 		}
 		case 1:
 			Edit_SetText(edit, s2ws(imglist.at(0)).c_str());
+			EnableWindow(btnghost, false);
 			break;
+		case 2:
+			EnableWindow(btnxp, false);
 		}
 		EndDialog(hwnd, 0);
 		return TRUE;
