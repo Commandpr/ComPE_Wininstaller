@@ -2491,8 +2491,8 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		case RUNIMGDOWNLOAD:
 		{
-			wstring cline = L"start .\\Downloader\\CDowner.exe "+to_wstring((int)hWnd);
-			STARTUPINFO si;
+			string cline = ".\\Downloader\\CDowner.exe "+to_string((int)hWnd);
+			STARTUPINFOA si;
 			PROCESS_INFORMATION pi;
 
 			// 初始化STARTUPINFO结构体
@@ -2501,7 +2501,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			si.dwFlags = STARTF_USESHOWWINDOW;
 
 			// 创建cmd.exe进程
-			if (!CreateProcess(NULL,
+			if (!CreateProcessA(NULL,
 				cline.data(), // 命令行参数
 				NULL,       // 安全属性
 				NULL,       // 安全属性
