@@ -2492,7 +2492,9 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case RUNIMGDOWNLOAD:
 		{
 			string cline = "start .\\Downloader\\CDowner.exe "+to_string((int)hWnd);
-			RunMyExec(cline.c_str());
+			//string cline = "cmd.exe ";
+			system(cline.c_str());
+			//MessageBoxA(NULL, cline.c_str(), NULL, NULL);
 			break;
 		}
 		case wimstartbt:
