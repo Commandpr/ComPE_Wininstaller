@@ -5,7 +5,6 @@
 #include <io.h>
 #include <windowsx.h>
 #include <tchar.h>
-
 #include <stdio.h>
 #include <iostream>
 #include <string>
@@ -536,6 +535,7 @@ TCHAR* GetGhoFile(LPCWSTR ftr,HWND hwnd) {
 	}
 	delete var;
 	free(p);
+	return L"";
 }
 
 int GetDiskNum(char str[2]) {
@@ -1032,6 +1032,28 @@ void mountwimiso() {
 	DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG1), hWnd, ISOSunProc);
 	
 }
+//void copy_directory(const filesystem::path& source, const filesystem::path& destination) {
+//	// 创建目标目录，如果它不存在的话
+//	filesystem::create_directories(destination);
+//
+//	for (const auto& entry : filesystem::recursive_directory_iterator(source)) {
+//		filesystem::path new_path = destination / entry.path().filename();
+//		if (filesystem::is_directory(entry.status())) {
+//			// 如果是目录，则递归复制
+//			SetWindowText(protxt3, (L"创建文件夹：" + new_path.wstring()).c_str());
+//			copy_directory(entry.path(), new_path);
+//		}
+//		else {
+//			// 如果是文件，则复制文件
+//			SetWindowText(protxt3, (L"复制文件：" + new_path.wstring()).c_str());
+//			//CopyFile(entry.path().wstring().c_str(), new_path.wstring().c_str(), FALSE);
+//			filesystem::copy(entry.path(), new_path, filesystem::copy_options::overwrite_existing);
+//			//std::cout << "Copied: " << entry.path() << " to " << new_path << std::endl;
+//			
+//		}
+//	}
+//}
+
 void CreateUnattendXML(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand, bool SkipOOBE) {
 	TiXmlDocument* tinyXmlDoc = new TiXmlDocument();
 	TiXmlDeclaration* tinyXmlDeclare = new TiXmlDeclaration("1.0", "utf-8", "");
@@ -2569,7 +2591,7 @@ void CopyXPFile() {
 			a++;
 			CopyFile(s2ws(dirstr + "\\" + file).c_str(), s2ws(path + "\\" + file).c_str(), FALSE);
 			SetWindowText(protxt, s2ws("复制启动文件：" + file).c_str());
-			MoveWindow(barfw, 0, 427, (float)a * (640 / 114), 14, TRUE);
+			MoveWindow(barfw, 0, 427, (float)a * (640/4 / 114), 14, TRUE);
 		}
 		catch (exception) {
 			isloading = false;
@@ -2588,11 +2610,15 @@ void CopyXPFile() {
 		SetWindowText(protxt, s2ws("复制SYSTEM32文件夹...").c_str());
 		CreateDirectory(s2ws(path + "\\SYSTEM32").c_str(), NULL);
 		filesystem::copy(dirstr + "\\SYSTEM32", path + "\\SYSTEM32", filesystem::copy_options::recursive);
-		MoveWindow(barfw, 0, 427, 113 * (640 / 114), 15, TRUE);
+		//copy_directory(dirstr + "\\SYSTEM32", path + "\\SYSTEM32");
+		SetWindowText(protxt3, NULL);
+		MoveWindow(barfw, 0, 427, 113 * (640/4*2 / 114), 15, TRUE);
 		SetWindowText(protxt, s2ws("复制安装文件夹...").c_str());
 		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS").c_str(), NULL);
 		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS\\"+CPUMode).c_str(), NULL);
 		filesystem::copy(dirstr, tarstr + "$WIN_NT$.~LS\\" + CPUMode, filesystem::copy_options::recursive);
+		//copy_directory(dirstr, tarstr + "$WIN_NT$.~LS\\" + CPUMode);
+		SetWindowText(protxt3, NULL);
 		if (CPUMode == "I386") {
 			MoveWindow(barfw, 0, 427, 640, 15, TRUE);
 			goto CopyOK;
@@ -2601,13 +2627,16 @@ void CopyXPFile() {
 			CPUMode = "I386";
 		}
 		dirstr2 = ws2s(dirs);
+		MoveWindow(barfw, 0, 427, 113 * (640 / 4 * 3 / 114), 15, TRUE);
 		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS\\" + CPUMode).c_str(), NULL);
 		filesystem::copy(dirstr2+CPUMode, tarstr + "$WIN_NT$.~LS\\" + CPUMode, filesystem::copy_options::recursive);
+		//copy_directory(dirstr2+ CPUMode, tarstr + "$WIN_NT$.~LS\\" + CPUMode);
+		SetWindowText(protxt3, NULL);
 		MoveWindow(barfw, 0, 427, 640, 15, TRUE);
 	}
 	catch (exception) {
 		isloading = false;
-		MessageBox(hWnd, L"复制文件夹错误！未成功找到文件夹，请确认文件夹是否正确！", 0, MB_ICONERROR);
+		MessageBox(hWnd, L"复制文件夹错误！未成功找到文件夹或已有重复目录。请确认文件夹是否正确！", 0, MB_ICONERROR);
 		SetWindowText(protxt, NULL);
 		MoveWindow(barfw, 0, 427, 0, 15, TRUE);
 		EnableWindow(win3, true);

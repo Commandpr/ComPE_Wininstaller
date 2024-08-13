@@ -26,7 +26,6 @@
 #define IDC_EDIT6                       1016
 #define IDC_CHECK1                      1017
 #define IDC_LIST1                       1018
-#define IDC_STATIC3                     1019
 #define IDC_STCSWM                      1020
 
 // Next default values for new objects

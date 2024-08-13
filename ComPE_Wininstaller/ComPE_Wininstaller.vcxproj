@@ -150,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="getdiskslist.h" />
+    <ClInclude Include="inicpp.hpp" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SecureBootAndTPMCheck.h" />
     <ClInclude Include="wimlib.h" />

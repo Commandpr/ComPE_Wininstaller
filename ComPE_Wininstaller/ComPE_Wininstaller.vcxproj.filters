@@ -53,6 +53,9 @@
     <ClInclude Include="getdiskslist.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="inicpp.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ComPE_Wininstaller1.rc">
