@@ -2491,9 +2491,48 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		case RUNIMGDOWNLOAD:
 		{
-			string cline = "start .\\Downloader\\CDowner.exe "+to_string((int)hWnd);
-			//string cline = "cmd.exe ";
-			system(cline.c_str());
+			wstring cline = L"start .\\Downloader\\CDowner.exe "+to_wstring((int)hWnd);
+			STARTUPINFO si;
+			PROCESS_INFORMATION pi;
+
+			// 初始化STARTUPINFO结构体
+			ZeroMemory(&si, sizeof(si));
+			si.cb = sizeof(si);
+			si.dwFlags = STARTF_USESHOWWINDOW;
+
+			// 创建cmd.exe进程
+			if (!CreateProcess(NULL,
+				cline.data(), // 命令行参数
+				NULL,       // 安全属性
+				NULL,       // 安全属性
+				FALSE,      // 继承句柄
+				NORMAL_PRIORITY_CLASS | STARTF_USESHOWWINDOW, // 标志
+				NULL,       // 环境变量
+				NULL,       // 当前目录
+				&si,        // 启动信息
+				&pi))       // 接收进程信息
+			{
+				LPWSTR messageBuffer = nullptr;
+				DWORD size = FormatMessageW(
+					FORMAT_MESSAGE_ALLOCATE_BUFFER |
+					FORMAT_MESSAGE_FROM_SYSTEM |
+					FORMAT_MESSAGE_IGNORE_INSERTS,
+					NULL,
+					GetLastError(),
+					MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+					(LPWSTR)&messageBuffer,
+					0,
+					NULL
+				);
+				wstring ErrStr = messageBuffer;
+				MessageBox(hWnd, (L"未能启动下载器，错误代码：" + ErrStr).c_str(), NULL, MB_ICONERROR);
+				break;
+			}
+			WaitForSingleObject(pi.hProcess, INFINITE);
+
+			// 进程结束后关闭句柄
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
 			//MessageBoxA(NULL, cline.c_str(), NULL, NULL);
 			break;
 		}
