@@ -2498,7 +2498,6 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			// 初始化STARTUPINFO结构体
 			ZeroMemory(&si, sizeof(si));
 			si.cb = sizeof(si);
-			si.dwFlags = STARTF_USESHOWWINDOW;
 
 			// 创建cmd.exe进程
 			if (!CreateProcessA(NULL,
@@ -2506,7 +2505,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				NULL,       // 安全属性
 				NULL,       // 安全属性
 				FALSE,      // 继承句柄
-				NORMAL_PRIORITY_CLASS | STARTF_USESHOWWINDOW, // 标志
+				NULL, // 标志
 				NULL,       // 环境变量
 				NULL,       // 当前目录
 				&si,        // 启动信息
@@ -2528,11 +2527,9 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				MessageBox(hWnd, (L"未能启动下载器，错误原因：" + ErrStr).c_str(), NULL, MB_ICONERROR);
 				break;
 			}
-
-			// 进程结束后关闭句柄
+			//MessageBoxA(NULL, cline.c_str(), NULL, NULL);
 			CloseHandle(pi.hProcess);
 			CloseHandle(pi.hThread);
-			//MessageBoxA(NULL, cline.c_str(), NULL, NULL);
 			break;
 		}
 		case wimstartbt:
