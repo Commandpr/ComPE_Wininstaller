@@ -2525,10 +2525,9 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					NULL
 				);
 				wstring ErrStr = messageBuffer;
-				MessageBox(hWnd, (L"未能启动下载器，错误代码：" + ErrStr).c_str(), NULL, MB_ICONERROR);
+				MessageBox(hWnd, (L"未能启动下载器，错误原因：" + ErrStr).c_str(), NULL, MB_ICONERROR);
 				break;
 			}
-			WaitForSingleObject(pi.hProcess, INFINITE);
 
 			// 进程结束后关闭句柄
 			CloseHandle(pi.hProcess);
