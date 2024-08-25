@@ -1,0 +1,11 @@
+Date   : Sun Aug 25 21:00:56 2024
+Error Number: 10010
+Message: Cannot open image file E:\???????\GhostXP_2014.GHO [Win32 error: (0x00000003)
+Message description : The system cannot find the path specified.
+
+]
+Version: 12.0.0.11531(Feb  2 2023, Build=11531
+OS Version: Professional  (Build 9200)
+Command line arguments: -clone,mode=pload,src=e:\\ghostxp_2014.gho:1,dst=2:2 -sure
+Active Switches :
+       AutoName

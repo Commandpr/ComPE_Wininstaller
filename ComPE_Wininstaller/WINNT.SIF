@@ -1,0 +1,13 @@
+[Data]
+UnattendedInstall="Yes"
+MsDosInitiated="1"
+FloppyLess="1"
+
+
+[Unattended]
+UnattendMode=FullUnattended
+TargetPath=\WINDOWS
+
+
+[UserData]
+ProductKey=11111-11111-11111-11111-11111

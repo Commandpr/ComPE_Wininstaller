@@ -1,4 +1,5 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
+//#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #include <Windows.h>
@@ -19,6 +20,7 @@
 #include <comdef.h>
 #include <fcntl.h>
 #include <Shlobj.h>
+//#include "inicpp.hpp"
 #include "wimlib.h"
 #include "dismapi.h"
 #include "json/json.h"
@@ -1032,28 +1034,24 @@ void mountwimiso() {
 	DialogBox((HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE), MAKEINTRESOURCE(IDD_DIALOG1), hWnd, ISOSunProc);
 	
 }
-//void copy_directory(const filesystem::path& source, const filesystem::path& destination) {
-//	// 创建目标目录，如果它不存在的话
-//	filesystem::create_directories(destination);
-//
-//	for (const auto& entry : filesystem::recursive_directory_iterator(source)) {
-//		filesystem::path new_path = destination / entry.path().filename();
-//		if (filesystem::is_directory(entry.status())) {
-//			// 如果是目录，则递归复制
-//			SetWindowText(protxt3, (L"创建文件夹：" + new_path.wstring()).c_str());
-//			copy_directory(entry.path(), new_path);
-//		}
-//		else {
-//			// 如果是文件，则复制文件
-//			SetWindowText(protxt3, (L"复制文件：" + new_path.wstring()).c_str());
-//			//CopyFile(entry.path().wstring().c_str(), new_path.wstring().c_str(), FALSE);
-//			filesystem::copy(entry.path(), new_path, filesystem::copy_options::overwrite_existing);
-//			//std::cout << "Copied: " << entry.path() << " to " << new_path << std::endl;
-//			
-//		}
-//	}
+//void CreateUnattendSIF(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand, bool SkipOOBE) {
+//	inicpp::IniManager _ini(".\\WINNT.SIF");
+//	_ini.modify("Data", "UnattendedInstall", "\"Yes\"");
+//	_ini.modify("Data", "MsDosInitiated", "\"1\"");
+//	_ini.modify("Data", "FloppyLess", "\"1\"");
+//	_ini.modify("Unattended", "UnattendMode", "FullUnattended");
+//	_ini.modify("Unattended", "TargetPath", "\\WINDOWS");
+//	_ini.modify("Unattended", "AutoActivate", "Yes");
+//	_ini.modify("UserData", "ProductKey", RegisterKey);
+//	_ini.modify("UserData", "OrgName", "Microsoft");
+//	_ini.modify("UserData", "FullName", Username);
+//	_ini.modify("GuiUnattended", "OEMSkipRegional", SkipOOBE ? "Yes" : "No");
+//	_ini.modify("GuiUnattended", "TimeZone", "210");
+//	_ini.modify("Unattended", "OemSkipEula", SkipOOBE ? "Yes" : "No");
+//	_ini.modify("GuiUnattended", "OemSkipWelcome", SkipOOBE ? "Yes" : "No");
+//	_ini.modify("TapiLocation", "CountryCode", 86);
+//	_ini.modify("Identification", "JoinWorkgroup", "WORKGROUP");
 //}
-
 void CreateUnattendXML(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand, bool SkipOOBE) {
 	TiXmlDocument* tinyXmlDoc = new TiXmlDocument();
 	TiXmlDeclaration* tinyXmlDeclare = new TiXmlDeclaration("1.0", "utf-8", "");
@@ -1300,240 +1298,6 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 	DismShutdown();
 	return 0;
 }
-/*
-// Helper function to check for registry key existence
-bool IsRegistryKeyPresent(HKEY hKey, LPCSTR subKey) {
-	HKEY hResult;
-	LONG lError = RegOpenKeyExA(hKey, subKey, 0, KEY_READ, &hResult);
-	if (lError == ERROR_SUCCESS) {
-		RegCloseKey(hResult);
-		return true;
-	}
-	return false;
-}
-
-// Helper function to check for registry key value
-bool IsRegistryKeyValuePresent(HKEY hKey, LPCSTR subKey, LPCSTR valueName) {
-	HKEY hResult;
-	LONG lError = RegOpenKeyExA(hKey, subKey, 0, KEY_READ, &hResult);
-	if (lError == ERROR_SUCCESS) {
-		DWORD type;
-		BYTE data[1024];
-		DWORD dataSize = sizeof(data);
-		lError = RegQueryValueExA(hResult, valueName, NULL, &type, data, &dataSize);
-		RegCloseKey(hResult);
-		if (lError == ERROR_SUCCESS) {
-			return true;
-		}
-	}
-	return false;
-}
-
-bool inPE() {
-	bool isWinPE = false;
-
-	// Check for MININT startup flag
-	isWinPE |= IsRegistryKeyValuePresent(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\SystemStartOptions", "MININT");
-
-	// Check for MiniNT registry key
-	isWinPE |= IsRegistryKeyPresent(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\MiniNT");
-
-	// Check for WinPE registry key
-	isWinPE |= IsRegistryKeyPresent(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\WinPE");
-
-
-	return isWinPE;
-}
-
-void Prep_WinPE(int mode, string path, string disk, string unattend, string bootdisk, int pd, int imageindex,bool isiso,string isodir, HWND enablewin) {
-	isloading = true;
-	EnableWindow(btndisk, false);
-	EnableWindow(btnxp, false);
-	EnableWindow(btnghost, false);
-	EnableWindow(btnwim, false);
-	EnableWindow(btnreboot, false);
-	EnableWindow(btnlogo, false);
-	TCHAR sysPath[MAX_PATH] = { 0 };
-	GetSystemDirectory(sysPath, MAX_PATH);
-	char par = ws2s(sysPath).at(0);
-	string pari;
-	stringstream ss;
-	ss << par;
-	pari = ss.str();
-	SetWindowText(protxt, L"创建Windows PE启动文件...");
-	CreateDirectory(s2ws(pari+":\\CWinst").c_str(), NULL);
-	CreateDirectory(s2ws(pari+":\\CWinst\\Boot").c_str(), NULL);
-	CopyFile(L".\\BootFile\\compe_main.wim", s2ws(pari+":\\CWinst\\compe_main.wim").c_str(), false);
-	CopyFile(L".\\BootFile\\boot.sdi", s2ws(pari + ":\\CWinst\\boot.sdi").c_str(), false);
-	DismLogLevel Level = DismLogErrorsWarningsInfo;
-	DismString* ErrStr;
-	HRESULT hr = DismInitialize(Level, NULL, NULL);
-	if (FAILED(hr)) {
-		DismGetLastErrorMessage(&ErrStr);
-		MessageBoxA(hWnd, ("初始化Dism会话失败，错误代码："+ws2s(ErrStr->Value)).c_str(), NULL, NULL);
-		DismDelete(ErrStr);
-		return;
-	}
-	hr = DismMountImage(s2ws(pari + ":\\CWinst\\compe_main.wim").c_str(), s2ws(pari + ":\\CWinst\\Boot").c_str(), 1, NULL, DismImageIndex, DISM_MOUNT_READWRITE, NULL, NULL, NULL);
-	if (FAILED(hr)) {
-		DismGetLastErrorMessage(&ErrStr);
-		MessageBoxA(hWnd, ("写入Windows PE启动文件失败，错误代码："+ ws2s(ErrStr->Value)).c_str(), NULL, NULL);
-		DismDelete(ErrStr);
-		DismShutdown();
-		return;
-	}
-	SetWindowText(protxt, L"准备用户配置的操作...");
-	string sifolder = pari+":\\CWinst\\Boot\\Windows\\CWInstallConfig.json";
-	fstream f;
-	f.open(sifolder, ios::out);
-	string jsonStr;
-	string strstr = "{\n\
-	\"mode\":" + to_string(mode) + ",\n\
-	\"mainpath\":\"" + path + "\",\n\
-	\"maindir\":\"" + disk + "\",\n\
-	\"bootdir\":\"" + bootdisk + "\",\n\
-	\"unattend\":\"" + unattend + "\",\n\
-	\"ghopar\":" + to_string(pd) + ",\n\
-	\"wimindex\":" + to_string(imageindex) + ",\n\
-	\"isopath\":\"" + isodir + "\",\n\
-	\"isiso\":" + to_string(isiso) + "\n\
-}";
-	for (char c :strstr) {
-		if (c == '\\') {
-			jsonStr += "\\\\";
-		}
-		else {
-			jsonStr += c;
-		}
-	}
-	f << jsonStr << endl;
-	f.close();
-	SetWindowText(protxt, L"保存配置...");
-	DismUnmountImage(s2ws(pari + ":\\CWinst\\Boot").c_str(), DISM_COMMIT_IMAGE, NULL, NULL,NULL);
-	DismGetLastErrorMessage(&ErrStr);
-	DismDelete(ErrStr);
-	DismShutdown();
-	SetWindowText(protxt, L"创建引导...");
-	string guid1 = "{BEAAB3B9-80C3-13A8-6CF2-F5CC87F4006E}";
-	string guid2 = "{40D2B668-D94D-7EE2-0C07-7A796BB7A1D1}";
-	vector<string> cmds;
-	if (GetFirmware() == "Legacy")
-	{
-		cmds.push_back("/create " + guid1 + " /d \"CWinst Windows PE Environment\" /application osloader");
-		cmds.push_back("/create " + guid2 + " /device");
-		cmds.push_back("/set " + guid2 + " ramdisksdidevice partition=\"" + pari + ":\"");
-		cmds.push_back("/set " + guid2 + " ramdisksdipath \\CWinst\\boot.sdi");
-		cmds.push_back("/set " + guid1 + " device ramdisk=\"[" + pari + ":]\\CWinst\\compe_main.wim," + guid2);
-		cmds.push_back("/set " + guid1 + " osdevice ramdisk=\"[" + pari + ":]\\CWinst\\compe_main.wim," + guid2);
-		cmds.push_back("/set " + guid1 + " path \\windows\\system32\\boot\\winload.exe");
-		cmds.push_back("/set " + guid1 + " systemroot \\windows");
-		cmds.push_back("/set " + guid1 + " detecthal yes");
-		cmds.push_back("/set " + guid1 + " winpe yes");
-		cmds.push_back("/bootsequence " + guid1 + " /addfirst");
-		cmds.push_back("/timeout 5");
-	}
-	else
-	{
-		cmds.push_back("/create " + guid1 + " /d \"CWinst Windows PE Environment\" /application osloader");
-		cmds.push_back("/create " + guid2 + " /device");
-		cmds.push_back("/set " + guid2 + " ramdisksdidevice partition=\"" + pari + ":\"");
-		cmds.push_back("/set " + guid2 + " ramdisksdipath \\CWinst\\boot.sdi");
-		cmds.push_back("/set " + guid1 + " device ramdisk=\"[" + pari + ":]\\CWinst\\compe_main.wim," + guid2);
-		cmds.push_back("/set " + guid1 + " osdevice ramdisk=\"[" + pari + ":]\\CWinst\\compe_main.wim," + guid2);
-		cmds.push_back("/set " + guid1 + " path \\windows\\system32\\boot\\winload.efi");
-		cmds.push_back("/set " + guid1 + " systemroot \\windows");
-		cmds.push_back("/set " + guid1 + " detecthal yes");
-		cmds.push_back("/set " + guid1 + " winpe yes");
-		cmds.push_back("/bootsequence " + guid1 + " /addfirst");
-		cmds.push_back("/timeout 5");
-	}
-	for (string cmd : cmds) {
-		string exec = ".\\bcdedit.exe " + cmd;
-		RunMyExec(exec.c_str());
-	}
-	
-	for (int a = 0; a <= 10; a++) {
-		SetWindowText(protxt, s2ws(to_string(10-a)+"秒后将重启计算机...").c_str());
-		MoveWindow(barfw, 0, 425, 640-640/10*a, 15, TRUE);
-		Sleep(1000);
-	}
-	powerOffProc();
-}
-
-void GetConfigJson() {
-	TCHAR sysPath[MAX_PATH] = { 0 };
-	GetSystemDirectory(sysPath, MAX_PATH);
-	char par = ws2s(sysPath).at(0);
-	string pari;
-	stringstream ss;
-	ss << par;
-	pari = ss.str();
-	string sifolder = pari+":\\Windows\\CWInstallConfig.json";
-	MessageBoxA(hWnd, sifolder.c_str(), NULL, NULL);
-	fstream f;
-	string strJson;
-	f.open(sifolder, ios::in);
-	std::string line;
-	while (getline(f, line)) {
-		// 输出文件的每一行
-		strJson = strJson + line + "\n";
-	}
-	f.close();
-	MessageBoxA(hWnd, strJson.c_str(), NULL, NULL);
-	Json::Value root;
-	Json::Reader reader;
-	bool parsingSuccessful = reader.parse(strJson, root);
-	if (!parsingSuccessful) {
-		return;
-	}
-	int mode = root["mode"].asInt();
-	MessageBoxA(hWnd, to_string(mode).c_str(), NULL, NULL);
-	switch (mode) {
-	case 1:{
-		TabCtrl_SetCurSel(hTabCtrl,0);
-		SetWindowShow();
-		EnableWindow(btnghost, FALSE);
-		EnableWindow(btnwim, TRUE);
-		EnableWindow(btndisk, TRUE);
-		EnableWindow(btnxp, TRUE);
-		Edit_SetText(edit, s2ws(root["mainpath"].asString()).c_str());
-		break;
-	}
-	case 2:{
-		TabCtrl_SetCurSel(hTabCtrl, 1);
-		SetWindowShow();
-		EnableWindow(btnghost, TRUE);
-		EnableWindow(btndisk, TRUE);
-		EnableWindow(btnxp, TRUE);
-		EnableWindow(btnwim, FALSE);
-		Edit_SetText(edit2, s2ws(root["mainpath"].asString()).c_str());
-		break;
-	}
-	case 3: {
-		TabCtrl_SetCurSel(hTabCtrl, 2);
-		SetWindowShow();
-		EnableWindow(btnghost, TRUE);
-		EnableWindow(btnwim, TRUE);
-		EnableWindow(btndisk, TRUE);
-		EnableWindow(btnxp, FALSE);
-		break;
-	}
-	case 4: {
-		TabCtrl_SetCurSel(hTabCtrl, 4);
-		SetWindowShow();
-		EnableWindow(btnghost, TRUE);
-		EnableWindow(btnwim, TRUE);
-		EnableWindow(btndisk, FALSE);
-		EnableWindow(btnxp, FALSE);
-		break;
-	}
-}
-	return ;
-}
-*/
-
-
-
 
 LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 	DeleteMountedEFI();
@@ -1553,6 +1317,7 @@ LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd) {
 	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
 	InstalledImDisk();
+	//CreateUnattendSIF("NULL", "123", "11111-11111-11111-11111-11111", "NULL", "NULL", NULL);
 	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
 	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 	//SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
@@ -2142,8 +1907,10 @@ void ghost() {
 				string target = ws2s(disk).c_str();
 				const char* tg = strcat(roots, target.c_str());
 				int pn = GetPartitionNumber(tg);
-				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy((char*)malloc(target.length() + 1), target.c_str())) + 1) + ":" + to_string(pn) + " -sure";
-				RunMyExec(ghostexec.c_str());
+				char* mc = (char*)malloc(target.length() + 1);
+				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy(mc, target.c_str())) + 1) + ":" + to_string(pn) + " -sure";
+				system(ghostexec.c_str());
+				free(mc);
 			}
 			else {
 				TCHAR disk[MAX_PATH] = { 0 };
@@ -2154,7 +1921,7 @@ void ghost() {
 				string sub = target.substr(0, pos);
 				// 将子串赋值给一个变量 string
 				string result = sub;
-				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + ws2s(dirs) + ",dst=" + result + " -sure";
+				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=load,src=" + ws2s(dirs) + ",dst=" + to_string(stoi(result)+1) + " -sure";
 				RunMyExec(ghostexec.c_str());
 			}
 			EnableWindow(ghostartbtn, true);
@@ -2545,26 +2312,6 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (MessageBox(hwnd, L"确认应用WIM吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES)
 				{
-					/*
-					if (!inPE()) {
-						TCHAR tar[MAX_PATH] = { 0 };
-						ComboBox_GetText(hWndComboBox2, tar, MAX_PATH);
-						string diskstr = ws2s(tar).c_str();
-						TCHAR xml[MAX_PATH] = { 0 };
-						Edit_GetText(edit3, xml, MAX_PATH);
-						string unxml = ws2s(xml).c_str();
-						TCHAR boot[1024] = { 0 };
-						ComboBox_GetText(hWndComboBox3, boot, 1024);
-						string bdk = ws2s(boot).c_str();
-						bool isiso = false;
-						if (MountedDisk == "")
-							isiso = true;
-						thread t1(Prep_WinPE, 2, dirstr, diskstr, unxml, bdk, NULL, ComboBox_GetCurSel(hWndComboBox4)+1, isiso, isopath, btnwim);
-						t1.detach();
-						break;
-					}
-					else {
-					*/
 						thread t(writewim);
 						t.detach();
 						break;
