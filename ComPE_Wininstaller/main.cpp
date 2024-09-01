@@ -1,7 +1,22 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
-//#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
+﻿// Copyright (C) 2024  Commandpr
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Author: Commandpr
+// Email: commandpr@foxmail.com
+#define _CRT_SECURE_NO_WARNINGS
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
-
 #include <Windows.h>
 #include <io.h>
 #include <windowsx.h>
@@ -20,7 +35,6 @@
 #include <comdef.h>
 #include <fcntl.h>
 #include <Shlobj.h>
-//#include "inicpp.hpp"
 #include "wimlib.h"
 #include "dismapi.h"
 #include "json/json.h"
@@ -540,7 +554,7 @@ TCHAR* GetGhoFile(LPCWSTR ftr,HWND hwnd) {
 	return L"";
 }
 
-int GetDiskNum(char str[2]) {
+int GetDiskNum(const char str[2]) {
 	char deviceName[7] = "\\\\.\\";
 	strcat_s(deviceName, str);
 	STORAGE_DEVICE_NUMBER sdn;
@@ -1318,10 +1332,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
 	InstalledImDisk();
 	//CreateUnattendSIF("NULL", "123", "11111-11111-11111-11111-11111", "NULL", "NULL", NULL);
-	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
+	RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Regular.ttf");
 	RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 	//SendMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
-	AddFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
+	AddFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Regular.ttf");
 	AddFontResource(L".\\Fonts\\segoe_slboot.ttf");
 	WNDCLASS wndcls; //创建一个窗体类
 	wndcls.cbClsExtra = 0;//类的额外内存，默认为0即可
@@ -1536,7 +1550,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		CLIP_DEFAULT_PRECIS,               //   nClipPrecision   
 		DEFAULT_QUALITY,                       //   nQuality   
 		DEFAULT_PITCH | FF_SWISS,     //   nPitchAndFamily     
-		_T("HarmonyOS Sans SC Medium"));
+		_T("HarmonyOS Sans SC"));
 	hFont2 = CreateFont(16,                                    //   字体的高度   
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
@@ -1550,7 +1564,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		CLIP_DEFAULT_PRECIS,               //   nClipPrecision   
 		DEFAULT_QUALITY,                       //   nQuality   
 		DEFAULT_PITCH | FF_SWISS,     //   nPitchAndFamily     
-		_T("HarmonyOS Sans SC Medium"));
+		_T("HarmonyOS Sans SC"));
 	hFont3 = CreateFont(17,                                    //   字体的高度   
 		0,                                          //   字体的宽度  
 		0,                                          //  nEscapement 
@@ -1907,10 +1921,8 @@ void ghost() {
 				string target = ws2s(disk).c_str();
 				const char* tg = strcat(roots, target.c_str());
 				int pn = GetPartitionNumber(tg);
-				char* mc = (char*)malloc(target.length() + 1);
-				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(strcpy(mc, target.c_str())) + 1) + ":" + to_string(pn) + " -sure";
+				string ghostexec = ".\\Ghost\\ghost64.exe -clone,mode=pload,src=" + dirstr + ":1,dst=" + to_string(GetDiskNum(target.c_str()) + 1) + ":" + to_string(pn) + " -sure";
 				system(ghostexec.c_str());
-				free(mc);
 			}
 			else {
 				TCHAR disk[MAX_PATH] = { 0 };
@@ -2988,7 +3000,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
 		RunMyExec(unmountcmd.c_str());
 		UninstalledImDisk();
-		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Medium.ttf");
+		RemoveFontResource(L".\\Fonts\\HarmonyOS_Sans_SC_Regular.ttf");
 		RemoveFontResource(L".\\Fonts\\segoe_slboot.ttf");
 		PostQuitMessage(0);//发出WM_QUIT消息，结束消息循环
 		break;
