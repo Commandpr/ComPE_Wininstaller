@@ -1023,7 +1023,6 @@ void mountwimiso() {
 			EnableWindow(btnxp, true);
 			EnableWindow(btnreboot, true);
 			EnableWindow(btnwim, true);
-
 			SetWindowText(protxt, NULL);
 			mylogger->error("ISO里没有任何的WIM/ESD/GHO/映像文件夹文件。");
 			MessageBox(hWnd, L"ISO不包含映像，请检查选择的ISO是否正确", NULL, MB_ICONERROR);
@@ -2039,7 +2038,6 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					break;
 				}
 			}
-			EnableWindow(btnghost, false);
 			Edit_SetText(edit, file);
 			break;
 		}
