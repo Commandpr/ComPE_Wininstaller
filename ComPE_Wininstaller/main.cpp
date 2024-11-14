@@ -32,9 +32,12 @@
 #include <thread>
 #include <regex>
 #include <vector>
+#include <spdlog/fmt/ostr.h>
 #include <comdef.h>
 #include <fcntl.h>
 #include <Shlobj.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include "wimlib.h"
 #include "dismapi.h"
 #include "json/json.h"
@@ -198,6 +201,18 @@ const char* WIMLIB_ERROR_STRING_OF_CHINESE = R"({
 "90": "无效的扩展属性",
 "91": "设置扩展属性错误"
 })";
+
+auto mylogger = spdlog::rotating_logger_mt("CWINST_LOGGER", ".\\log\\cwinst.log", 1048576 * 10, 3);
+void initLogger() {
+	// 创建一个循环文件日志接收器，文件大小限制为10MB
+	mylogger->info("设置日志格式。");
+	// 设置日志格式
+	mylogger->set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] [%t] %v");
+	spdlog::flush_every(std::chrono::seconds(1));
+	// 写入一条信息级别的日志
+	mylogger->info("初始化日志系统完成！");
+
+}
 DWORD RunMyExec(const char* cmd) {
 	STARTUPINFOA si;
 	PROCESS_INFORMATION pi;
@@ -252,6 +267,7 @@ void InstalledImDisk() {
 	int result = RunMyExec("imdisk --version");
 	if (result != 0) {
 		isInstalled = false;
+		mylogger->info("环境没有imdisk，临时安装。");
 		RunMyExec(".\\ImdiskPack\\install.cmd");
 		return;
 	}
@@ -260,6 +276,7 @@ void InstalledImDisk() {
 
 void UninstalledImDisk() {
 	if (!isInstalled) {
+		mylogger->info("环境没有imdisk，卸载临时安装的imdisk。");
 		RunMyExec(".\\ImdiskPack\\uninstall_imdisk.cmd");
 		return;
 	}
@@ -270,6 +287,7 @@ BOOL GetCPUOfWinXP(wstring filePath, wstring* SysVer) {
 	if (!file.is_open()) {
 		file.open(filePath + L"\\AMD64\\TXTSETUP.SIF");
 		if (!file.is_open()) {
+			mylogger->error("试图获取{:s}的镜像系统版本失败，文件无法打开。", ws2s(filePath));
 			MessageBox(hWnd, L"无法打开安装程序文件！请检查选择的文件夹完整性！", NULL, MB_ICONERROR);
 			return -1;
 		}
@@ -311,6 +329,7 @@ BOOL GetCPUOfWinXP(wstring filePath, wstring* SysVer) {
 		return productName.find(L"x64") != std::wstring::npos;
 	}
 	else {
+		mylogger->error("试图获取{:s}的镜像系统版本失败，文件格式错误。", ws2s(filePath));
 		MessageBox(hWnd, L"不是有效的Windows安装源！请检查选择的文件夹完整性！", NULL, MB_ICONERROR);
 		return -1;
 	}
@@ -502,6 +521,7 @@ bool powerOffProc()
 
 
 TCHAR* GetGhoFile(LPCWSTR ftr,HWND hwnd) {
+	mylogger->info("尝试打开文件，格式为{:s}", ws2s(ftr));
 	TCHAR szPath[MAX_PATH]{ 0 };//存储当前文件所在路径（不含文件名称和最后面的斜杠）
 	TCHAR szTitle[MAX_PATH]{ 0 };//存储当前文件名
 	TCHAR szFilePath[MAX_PATH]{ 0 };//存储当前文件路径
@@ -541,6 +561,7 @@ TCHAR* GetGhoFile(LPCWSTR ftr,HWND hwnd) {
 			lstrcpy(szTitle, p);//获取该文件的文件名
 			lstrcat(szFilePath, szTitle);//获得文件完整路径
 			delete var;
+			mylogger->info("选择的文件是{:s}", ws2s(szFilePath));
 			return szFilePath;
 			//此处应该有对获得后的文件名和文件完整路径的各种操作
 		}
@@ -572,10 +593,12 @@ int GetDiskNum(const char str[2]) {
 }
 void DeleteMountedEFI() {
 	for (string efipar : MountEFI) {
+		mylogger->info("删除临时盘符{:s}", efipar);
 		DeleteVolumeMountPointA((efipar + "\\").c_str());
 	}
 }
 void SetAllVolumeMountPoint() {
+	mylogger->info("尝试挂载临时盘符");
 	if(RunMyExec("pecmd show") == 0){
 		return;
 	}
@@ -676,6 +699,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			float f = (float)info->extract.current_file_count / (float)info->extract.end_file_count;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在创建文件...[" + to_string(f2) + "%]").c_str());
+			mylogger->info("正在创建文件...[" + to_string(f2) + "%]");
 			float tarloca = (float)info->extract.current_file_count / (float)info->extract.end_file_count * 640;
 			long long end_time = ((float)info->extract.end_file_count - (float)info->extract.current_file_count) / ((float)info->extract.current_file_count / nowtime);
 			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime)+"   剩余时间："+convertSecondsToTime(end_time)).c_str());
@@ -690,6 +714,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			float f = (float)info->extract.current_file_count / (float)info->extract.end_file_count;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在写入元数据...[" + to_string(f2) + "%]").c_str());
+			mylogger->info("正在写入元数据...[" + to_string(f2) + "%]");
 			float tarloca = (float)info->extract.current_file_count / (float)info->extract.end_file_count * 640;
 			long long end_time = ((float)info->extract.end_file_count - (float)info->extract.current_file_count) / ((float)info->extract.current_file_count / nowtime);
 			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime) + "   剩余时间：" + convertSecondsToTime(end_time)).c_str());
@@ -704,6 +729,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			float f = (float)info->extract.completed_bytes / (float)info->extract.total_bytes;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在安装...[" + to_string(f2) + "%]").c_str());
+			mylogger->info("正在安装...[" + to_string(f2) + "%]");
 			float tarloca = (float)info->extract.completed_bytes / (float)info->extract.total_bytes * 640;
 			long long end_time = ((float)info->extract.total_bytes - (float)info->extract.completed_bytes) / ((float)info->extract.completed_bytes / nowtime);
 			SetWindowTextA(protxt3, ("当前操作已用时间：" + convertSecondsToTime(nowtime) + "   剩余时间：" + convertSecondsToTime(end_time)).c_str());
@@ -730,6 +756,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 				loading = "正在扫描文件.";
 			}
 			SetWindowText(protxt, s2ws(loading).c_str());
+			mylogger->info(loading);
 			SetWindowTextA(protxt3, NULL);
 			break;
 		}
@@ -740,6 +767,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			float f = (float)info->write_streams.completed_bytes / (float)info->write_streams.total_bytes;
 			int f2 = round(f * 100);
 			SetWindowText(protxt, s2ws("正在备份...[" + to_string(f2) + "%]").c_str());
+			mylogger->info("正在备份...[" + to_string(f2) + "%]");
 			float tarloca = (float)info->write_streams.completed_bytes / (float)info->write_streams.total_bytes * 640;
 			MoveWindow(barfw, 0, 427, tarloca, 14, TRUE);
 			long long end_time = ((float)info->write_streams.total_bytes - (float)info->write_streams.completed_bytes) / ((float)info->extract.completed_bytes / nowtime);
@@ -753,6 +781,7 @@ wimlib_progress_status ApplyWimImage(wimlib_progress_msg msg_type, wimlib_progre
 			long long end_time = ((float)info->extract.total_bytes - (float)info->extract.completed_bytes) / ((float)info->extract.completed_bytes / nowtime);
 			SetWindowTextA(protxt3, NULL);
 			SetWindowText(protxt, s2ws(loading).c_str());
+			mylogger->info(loading);
 			break;
 		}
 		case WIMLIB_PROGRESS_MSG_WRITE_METADATA_END:
@@ -811,6 +840,7 @@ void GetWimSysInfo(const TCHAR* wimstr) {
 	result = wimlib_open_wim(wimpath, 0, &WIMFile);
 	if (result != 0) {
 		wstring err = GetWimErrorString(result);
+		mylogger->error("打开WIM发生错误，原因是{:s}", ws2s(err));
 		MessageBox(hWnd, (L"无法打开WIM！原因：" + err).c_str(), NULL, MB_ICONERROR);
 		SendMessage(hWndComboBox4, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 		return;
@@ -891,6 +921,7 @@ void mountwimiso() {
 	isloading = true;
 	thread t(loading_anim);
 	t.detach();
+	mylogger->info("开始挂载盘符。");
 	SetWindowText(protxt, s2ws("取消上次挂载...").c_str());
 	string unmountcmd = "imdisk -D -m "+MountedDisk;
 	RunMyExec(unmountcmd.c_str());
@@ -919,6 +950,7 @@ void mountwimiso() {
 		EnableWindow(btnxp, true);
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
+		mylogger->error("尝试挂载ISO的时候发现没有可以容纳的盘符可供选择。");
 		MessageBox(hWnd, L"没有可用盘符，无法挂载ISO以读取镜像信息！", NULL, MB_ICONERROR);
 		return;
 	}
@@ -937,6 +969,7 @@ void mountwimiso() {
 
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
+		mylogger->error("尝试挂载ISO的时候发现ISO似乎不对。");
 		MessageBox(hWnd, L"无法挂载ISO以读取镜像信息，请检查程序完整性或确定镜像是否正确！", NULL, MB_ICONERROR);
 		return;
 	}
@@ -992,13 +1025,14 @@ void mountwimiso() {
 			EnableWindow(btnwim, true);
 
 			SetWindowText(protxt, NULL);
+			mylogger->error("ISO里没有任何的WIM/ESD/GHO/映像文件夹文件。");
 			MessageBox(hWnd, L"ISO不包含映像，请检查选择的ISO是否正确", NULL, MB_ICONERROR);
 			string unmountcmd = "imdisk -D -m " + MountedDisk;
 			RunMyExec(unmountcmd.c_str());
 			return;
 		}
 	}
-	catch (exception) {
+	catch (exception e) {
 		isloading = false;
 		EnableWindow(win1, true);
 		EnableWindow(win2, true);
@@ -1010,6 +1044,7 @@ void mountwimiso() {
 
 		EnableWindow(btnreboot, true);
 		SetWindowText(protxt, NULL);
+		mylogger->error("发生读取ISO的异常，异常信息：{:s}",e.what());
 		MessageBoxA(hWnd, "无法搜索文件！\n这可能是镜像的分区格式不兼容，Windows无法识别这种分区格式。\n请尝试选择其他的ISO镜像", NULL, MB_ICONERROR);
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
 		RunMyExec(unmountcmd.c_str());
@@ -1067,6 +1102,7 @@ void mountwimiso() {
 //	_ini.modify("Identification", "JoinWorkgroup", "WORKGROUP");
 //}
 void CreateUnattendXML(string Username, string Password, string RegisterKey, string SysprepCommand, string FirstLogonCommand, bool SkipOOBE) {
+	mylogger->info("构建自定义无人值守文件...");
 	TiXmlDocument* tinyXmlDoc = new TiXmlDocument();
 	TiXmlDeclaration* tinyXmlDeclare = new TiXmlDeclaration("1.0", "utf-8", "");
 	tinyXmlDoc->LinkEndChild(tinyXmlDeclare);
@@ -1271,6 +1307,7 @@ void CreateUnattendXML(string Username, string Password, string RegisterKey, str
 		synchronousCommand->LinkEndChild(commandLine);
 	}
 	tinyXmlDoc->SaveFile(".\\Unattend.xml");
+	mylogger->info("构建完成。");
 }
 
 int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
@@ -1279,6 +1316,7 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 	HRESULT hr = DismInitialize(Level, NULL, NULL);
 	if (FAILED(hr)) {
 		DismGetLastErrorMessage(&ErrStr);
+		mylogger->error("Disk使用发生问题，原因是：{:s}", ws2s(ErrStr->Value));
 		MessageBoxA(hWnd, ("初始化Dism会话失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
 		DismDelete(ErrStr);
 		SetWindowText(protxt, NULL);
@@ -1288,6 +1326,7 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 	hr = DismOpenSession(TargetPath, NULL, NULL, &Session);
 	if (FAILED(hr)) {
 		DismGetLastErrorMessage(&ErrStr);
+		mylogger->error("Disk使用发生问题，原因是：{:s}", ws2s(ErrStr->Value));
 		MessageBoxA(hWnd, ("打开Windows安装文件夹失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
 		DismDelete(ErrStr);
 		DismShutdown();
@@ -1300,6 +1339,7 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 		hr = DismAddDriver(Session, s2ws(driver).c_str(), FALSE);
 		if (FAILED(hr)) {
 			DismGetLastErrorMessage(&ErrStr);
+			mylogger->error("Disk使用发生问题，原因是：{:s}", ws2s(ErrStr->Value));
 			MessageBoxA(hWnd, ("安装驱动失败，错误原因：" + ws2s(ErrStr->Value)).c_str(), NULL, MB_ICONERROR);
 			DismDelete(ErrStr);
 			DismCloseSession(Session);
@@ -1314,6 +1354,7 @@ int InstallDriver(TCHAR* TargetPath, TCHAR* DriverPath) {
 }
 
 LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
+
 	DeleteMountedEFI();
 	string unmountcmd = ".\\imdisk -D -m " + MountedDisk;
 	RunMyExec(unmountcmd.c_str());
@@ -1324,11 +1365,13 @@ LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS* pExceptionInfo) {
 	DWORD Error = pExceptionInfo->ExceptionRecord->ExceptionCode;
 	wstring em = to_wstring(Error);;
 	wstring ErrorInfo = L"发生严重异常！无法继续执行程序，请将以下错误代码发给程序作者，按下“确定”退出程序。\n错误代码：" + em;
+	mylogger->error("发生严重异常！无法继续执行任务，错误信息：", ws2s(ErrorInfo.c_str()));
 	MessageBox(hWnd, ErrorInfo.c_str(), L"错误：", MB_ICONERROR | MB_OK);
 	ExitProcess(1);
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd) {
+	initLogger();
 	SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
 	InstalledImDisk();
 	//CreateUnattendSIF("NULL", "123", "11111-11111-11111-11111-11111", "NULL", "NULL", NULL);
@@ -1398,6 +1441,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	wndcls7.style = CS_HREDRAW | CS_VREDRAW;//设置窗体风格为水平重画和垂直重画
 	RegisterClass(&wndcls7);//向操作系统注册窗体
 	//产生一个窗体，并返回该窗体的句柄，第一个参数必须为要创建的窗体的类名，第二个参数为窗体标题名
+	mylogger->info("创建窗口...");
 	HWND hwnd = CreateWindow(L"CWinstWindowClass", L"CWInst系统安装工具",
 		WS_OVERLAPPED^  WS_CAPTION ^ WS_MINIMIZEBOX ^ WS_SYSMENU, createx,
 		createy, 640, 480,
@@ -1897,6 +1941,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	if (inPE()) {
 		GetConfigJson();
 	}*/
+	mylogger->info("创建窗口完成！");
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
@@ -1913,6 +1958,7 @@ void ghost() {
 	}
 	else {
 		if (MessageBox(hWnd, L"确认应用Ghost映像吗？执行操作期间请勿操作电脑。", L"警告：", MB_YESNO | MB_ICONWARNING) == IDYES) {
+			mylogger->info("Ghost还原任务被执行...");
 			EnableWindow(ghostartbtn, false);
 			if (ispar) {
 				TCHAR disk[3] = { 0 };
@@ -1937,6 +1983,7 @@ void ghost() {
 				RunMyExec(ghostexec.c_str());
 			}
 			EnableWindow(ghostartbtn, true);
+			mylogger->info("任务结束！");
 			MessageBox(hWnd, L"执行完成！重启计算机后将进行进一步安装Windows操作（以Ghost官方提示为准）！", L"成功：", MB_ICONINFORMATION);
 		}
 	}
@@ -1992,6 +2039,7 @@ LRESULT CALLBACK InWin1Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					break;
 				}
 			}
+			EnableWindow(btnghost, false);
 			Edit_SetText(edit, file);
 			break;
 		}
@@ -2048,6 +2096,7 @@ void writewim() {
 	result = wimlib_open_wim_with_progress(dirs, 0, &WIM, ApplyWimImage, NULL);
 	if (result != 0) {
 		isloading = false;
+		mylogger->error("打开{:s}的时候失败了。", dirstr);
 		MessageBox(hWnd, L"未能成功打开WIM/ESD文件，请检查文件是否是正确的映像文件！", 0, MB_ICONERROR);
 		EnableWindow(win2, true);
 		EnableWindow(btnghost, true);
@@ -2075,6 +2124,7 @@ void writewim() {
 			wimlib_free(WIM);
 			delete[] wstringArray;
 			isloading = false;
+			mylogger->error("swm整合期间发生错误，原因：{:s}", ws2s(GetWimErrorString((wimlib_error_code)result)));
 			MessageBox(hWnd, s2ws("整合拆分swm时发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 			EnableWindow(win2, true);
 			EnableWindow(btnghost, true);
@@ -2090,6 +2140,7 @@ void writewim() {
 	if (result != 0) {
 		wimlib_free(WIM);
 		isloading = false;
+		mylogger->error("应用WIM/ESD映像的时候发生错误，错误原因：{:s}", ws2s(GetWimErrorString((wimlib_error_code)result)));
 		MessageBox(hWnd, s2ws("应用WIM/ESD映像的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win2, true);
 		EnableWindow(btnghost, true);
@@ -2209,7 +2260,7 @@ LRESULT CALLBACK InWin2Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					Edit_SetText(edit2, file.c_str());
 					GetWimSysInfo(file.c_str());
 				}
-				
+				EnableWindow(btnwim, false);
 				break;
 			}
 			catch (exception) {
@@ -2387,10 +2438,12 @@ void CopyXPFile() {
 			a++;
 			CopyFile(s2ws(dirstr + "\\" + file).c_str(), s2ws(path + "\\" + file).c_str(), FALSE);
 			SetWindowText(protxt, s2ws("复制启动文件：" + file).c_str());
+			mylogger->info("复制启动文件：" + file);
 			MoveWindow(barfw, 0, 427, (float)a * (640/4 / 114), 14, TRUE);
 		}
-		catch (exception) {
+		catch (exception e) {
 			isloading = false;
+			mylogger->error("复制文件发生异常，原因：{:s}", e.what());
 			MessageBox(hWnd, L"复制文件错误！未成功找到文件，请确认文件夹是否正确！", 0, MB_ICONERROR);
 			SetWindowText(protxt, NULL);
 			MoveWindow(barfw, 0, 427, 0, 15, TRUE);
@@ -2403,12 +2456,14 @@ void CopyXPFile() {
 		}
 	}
 	try {
+		mylogger->info("复制SYSTEM32文件夹...");
 		SetWindowText(protxt, s2ws("复制SYSTEM32文件夹...").c_str());
 		CreateDirectory(s2ws(path + "\\SYSTEM32").c_str(), NULL);
 		filesystem::copy(dirstr + "\\SYSTEM32", path + "\\SYSTEM32", filesystem::copy_options::recursive);
 		//copy_directory(dirstr + "\\SYSTEM32", path + "\\SYSTEM32");
 		SetWindowText(protxt3, NULL);
 		MoveWindow(barfw, 0, 427, 113 * (640/4*2 / 114), 15, TRUE);
+		mylogger->info("复制安装文件夹...");
 		SetWindowText(protxt, s2ws("复制安装文件夹...").c_str());
 		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS").c_str(), NULL);
 		CreateDirectory(s2ws(tarstr + "$WIN_NT$.~LS\\"+CPUMode).c_str(), NULL);
@@ -2430,8 +2485,9 @@ void CopyXPFile() {
 		SetWindowText(protxt3, NULL);
 		MoveWindow(barfw, 0, 427, 640, 15, TRUE);
 	}
-	catch (exception) {
+	catch (exception e) {
 		isloading = false;
+		mylogger->error("复制文件夹发生异常，原因：{:s}", e.what());
 		MessageBox(hWnd, L"复制文件夹错误！未成功找到文件夹或已有重复目录。请确认文件夹是否正确！", 0, MB_ICONERROR);
 		SetWindowText(protxt, NULL);
 		MoveWindow(barfw, 0, 427, 0, 15, TRUE);
@@ -2568,6 +2624,7 @@ LRESULT CALLBACK InWin3Proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			else {
 				SetWindowText(StcCPUMode, WinVer.c_str());
 			}
+			EnableWindow(btnxp, false);
 			break;
 		}
 		case xpisoloadbt:
@@ -2632,6 +2689,7 @@ void Bak(){
 	result = wimlib_create_new_wim((wimlib_compression_type)ct,&WIM);
 	if (result != 0) {
 		isloading = false;
+		mylogger->error("无法准备WIM文件，原因：" + ws2s((TCHAR*)GetWimErrorString((wimlib_error_code)result)));
 		MessageBox(hWnd, s2ws("无法准备WIM文件，原因："+ws2s((TCHAR*)GetWimErrorString((wimlib_error_code)result))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win5, true);
 
@@ -2653,7 +2711,7 @@ void Bak(){
 		isloading = false;
 		SetWindowText(protxt, NULL);
 		SetWindowTextA(protxt3, NULL);
-
+		mylogger->error("准备要备份的文件失败，原因：" + ws2s((TCHAR*)GetWimErrorString((wimlib_error_code)result)));
 		MessageBox(hWnd, s2ws("准备要备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win5, true);
 		EnableWindow(btnghost, true);
@@ -2676,7 +2734,7 @@ void Bak(){
 		isloading = false;
 		SetWindowText(protxt, NULL);
 		SetWindowTextA(protxt3, NULL);
-
+		mylogger->error("无法备份WIM文件，原因：" + ws2s((TCHAR*)GetWimErrorString((wimlib_error_code)result)));
 		MessageBox(hWnd, s2ws("备份的文件的时候发生错误，错误原因：" + ws2s((TCHAR*)(GetWimErrorString((wimlib_error_code)result)))).c_str(), 0, MB_ICONERROR);
 		EnableWindow(win5, true);
 		EnableWindow(btnghost, true);
@@ -2996,6 +3054,7 @@ LRESULT CALLBACK WinSunProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_DESTROY:
 	{
+		mylogger->info("退出程序...");
 		DeleteMountedEFI();
 		string unmountcmd = "imdisk -D -m " + MountedDisk;
 		RunMyExec(unmountcmd.c_str());
